@@ -380,7 +380,6 @@ function PlayerController() {
         if (best) {
           const hl = Math.hypot(look.x, look.z) || 1;
           send("hit", { from: playerId, target: best, dx: look.x / hl, dz: look.z / hl, power: SWORD_POWER[me.sword] });
-          hud.set({ hurt: hud.get().hurt }); // no-op keeps typing simple
         } else {
           const hit = raycast(G.world, camera.position, look, 5);
           if (hit) {
