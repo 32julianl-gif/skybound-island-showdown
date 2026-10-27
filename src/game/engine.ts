@@ -52,7 +52,7 @@ function bump() {
 }
 
 export function teleportToSpawn(i: number) {
-  const s = SPAWNS[((i % SPAWNS.length) + SPAWNS.length) % SPAWNS.length];
+  const s = SPAWNS[((i % SPAWNS.length) + SPAWNS.length) % SPAWNS.length]!;
   const me = G.self;
   me.pos.set(s.x + 0.5, 1, s.z + 0.5);
   me.vel.set(0, 0, 0);
