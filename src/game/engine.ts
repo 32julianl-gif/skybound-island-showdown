@@ -24,6 +24,8 @@ export const G = {
   startCount: 0,
   roster: [] as { id: string; name: string }[],
   remotes: new Map<string, NetState>(),
+  presence: [] as { id: string; name: string }[],
+  lastSeen: new Map<string, { name: string; at: number }>(),
   synced: false,
   spawnIdx: -1,
   endAt: 0,
@@ -137,6 +139,9 @@ export function handleEvent(event: NetEvent, p: any) {
   switch (event) {
     case "state": {
       G.remotes.set(p.id, p as NetState);
+      const known = G.roster.some((r) => r.id === p.id);
+      G.lastSeen.set(p.id, { name: p.name, at: performance.now() });
+      if (!known) refreshRoster();
       break;
     }
     case "block":
@@ -229,7 +234,27 @@ export function handleEvent(event: NetEvent, p: any) {
   }
 }
 
-export function onRoster(list: { id: string; name: string }[]) {
+/** Presence can flicker; a player counts as present if in presence OR sent state in the last 3s. */
+export function onPresence(list: { id: string; name: string }[]) {
+  G.presence = list;
+  refreshRoster();
+}
+
+export function refreshRoster() {
+  const now = performance.now();
+  const map = new Map(G.presence.map((r) => [r.id, r.name]));
+  for (const [id, v] of G.lastSeen) {
+    if (now - v.at > 3000) G.lastSeen.delete(id);
+    else if (!map.has(id)) map.set(id, v.name);
+  }
+  if (!map.has(playerId)) map.set(playerId, G.name);
+  const list = [...map].map(([id, name]) => ({ id, name }));
+  const same =
+    list.length === G.roster.length && list.every((r) => G.roster.some((o) => o.id === r.id && o.name === r.name));
+  if (!same) onRoster(list);
+}
+
+function onRoster(list: { id: string; name: string }[]) {
   const prev = new Set(G.roster.map((r) => r.id));
   G.roster = list;
   const ids = new Set(list.map((r) => r.id));

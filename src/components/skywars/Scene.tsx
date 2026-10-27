@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { BLOCK, BLOCK_TYPES, CHESTS, raycast } from "@/game/world";
 import { getBlockMaterials, getChestMaterials } from "@/game/textures";
-import { G, applyBlock, die, hostTick, openChest, startRound, teleportToSpawn } from "@/game/engine";
+import { G, applyBlock, die, hostTick, refreshRoster, openChest, startRound, teleportToSpawn } from "@/game/engine";
 import { hud, pushFeed, useHud, SWORD_POWER, SWORDS } from "@/game/store";
 import { playerId, send } from "@/game/net";
 
@@ -266,6 +266,7 @@ function PlayerController() {
   const acc = useRef(0);
   const last = useRef({ x: 0, y: 0, z: 0, ry: 0, a: true, at: -10 });
   const cooldown = useRef(0);
+  const rosterAcc = useRef(0);
 
   useEffect(() => {
     const el = gl.domElement;
@@ -437,6 +438,11 @@ function PlayerController() {
     }
 
     hostTick();
+    rosterAcc.current += dt;
+    if (rosterAcc.current > 1) {
+      rosterAcc.current = 0;
+      refreshRoster();
+    }
   });
 
   return null;
