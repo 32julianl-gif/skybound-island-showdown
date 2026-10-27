@@ -211,7 +211,7 @@ export function handleEvent(event: NetEvent, p: any) {
       G.round = p.round;
       resetWorld();
       for (const [k, t] of p.edits as [string, number][]) {
-        const [x, y, z] = k.split(",").map(Number);
+        const [x = 0, y = 0, z = 0] = k.split(",").map(Number);
         G.world.set(x, y, z, t);
         G.edits.set(k, t);
       }
@@ -234,7 +234,7 @@ export function onRoster(list: { id: string; name: string }[]) {
   G.roster = list;
   const ids = new Set(list.map((r) => r.id));
   for (const id of [...G.remotes.keys()]) if (!ids.has(id)) G.remotes.delete(id);
-  if (list.length === 1 && list[0].id === playerId) G.synced = true;
+  if (list.length === 1 && list[0]!.id === playerId) G.synced = true;
 
   // host brings late joiners up to date
   if (isHost() && G.synced) {

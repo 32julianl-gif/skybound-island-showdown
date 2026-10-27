@@ -37,7 +37,7 @@ function TypeMesh({ t, list }: { t: number; list: number[] }) {
     if (!m) return;
     const o = new THREE.Object3D();
     for (let i = 0; i < count; i++) {
-      o.position.set(list[i * 3] + 0.5, list[i * 3 + 1] + 0.5, list[i * 3 + 2] + 0.5);
+      o.position.set(list[i * 3]! + 0.5, list[i * 3 + 1]! + 0.5, list[i * 3 + 2]! + 0.5);
       o.updateMatrix();
       m.setMatrixAt(i, o.matrix);
     }
@@ -61,7 +61,7 @@ function Voxels() {
     const m = new Map<number, number[]>();
     for (const t of BLOCK_TYPES) m.set(t, []);
     for (const [k, t] of G.world.blocks) {
-      const [x, y, z] = k.split(",").map(Number);
+      const [x = 0, y = 0, z = 0] = k.split(",").map(Number);
       m.get(t)!.push(x, y, z);
     }
     return m;
