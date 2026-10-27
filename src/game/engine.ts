@@ -28,7 +28,7 @@ export const G = {
   spawnIdx: -1,
   endAt: 0,
   self: {
-    pos: new THREE.Vector3(SPAWNS[0].x + 0.5, 1, SPAWNS[0].z + 0.5),
+    pos: new THREE.Vector3(SPAWNS[0]!.x + 0.5, 1, SPAWNS[0]!.z + 0.5),
     vel: new THREE.Vector3(),
     kb: new THREE.Vector2(),
     yaw: 0,

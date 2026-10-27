@@ -25,7 +25,7 @@ const EYE = 1.62;
 const boxGeo = new THREE.BoxGeometry(1, 1, 1);
 
 // ---------- input (module-level, read in frame loop) ----------
-const keys: Record<string, boolean> = {};
+const keys = new Set<string>();
 const actions: string[] = [];
 
 // ---------- voxels ----------
@@ -109,7 +109,7 @@ const PALETTE = ["#e05a47", "#3f8fd8", "#f2b632", "#5bbf5a", "#b764d6", "#ef8a3c
 const colorFor = (id: string) => {
   let h = 0;
   for (const c of id) h = (h * 31 + c.charCodeAt(0)) | 0;
-  return PALETTE[Math.abs(h) % PALETTE.length];
+  return PALETTE[Math.abs(h) % PALETTE.length]!;
 };
 
 const tmp = new THREE.Vector3();
@@ -284,16 +284,16 @@ function PlayerController() {
     };
     const onKeyDown = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.tagName === "INPUT") return;
-      keys[e.code] = true;
+      keys.add(e.code);
       if (e.code === "Space") e.preventDefault();
       if (e.code === "KeyE") actions.push("chest");
       if (e.code === "Enter") startRound();
     };
     const onKeyUp = (e: KeyboardEvent) => {
-      keys[e.code] = false;
+      keys.delete(e.code);
     };
     const noMenu = (e: Event) => e.preventDefault();
-    const onBlur = () => Object.keys(keys).forEach((k) => (keys[k] = false));
+    const onBlur = () => keys.clear();
     el.addEventListener("click", onClick);
     el.addEventListener("contextmenu", noMenu);
     document.addEventListener("pointerlockchange", onLock);
@@ -317,8 +317,8 @@ function PlayerController() {
   useFrame(({ clock }, raw) => {
     const dt = Math.min(raw, 0.05);
     const me = G.self;
-    const fwdIn = (keys.KeyW || keys.ArrowUp ? 1 : 0) - (keys.KeyS || keys.ArrowDown ? 1 : 0);
-    const rightIn = (keys.KeyD || keys.ArrowRight ? 1 : 0) - (keys.KeyA || keys.ArrowLeft ? 1 : 0);
+    const fwdIn = (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) - (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0);
+    const rightIn = (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) - (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0);
     const sy = Math.sin(me.yaw), cy = Math.cos(me.yaw);
     let wx = -sy * fwdIn + cy * rightIn;
     let wz = -cy * fwdIn - sy * rightIn;
@@ -329,15 +329,15 @@ function PlayerController() {
       const sp = 12;
       me.pos.x += wx * sp * dt;
       me.pos.z += wz * sp * dt;
-      me.pos.y += ((keys.Space ? 1 : 0) - (keys.ShiftLeft ? 1 : 0)) * sp * dt;
+      me.pos.y += ((keys.has("Space") ? 1 : 0) - (keys.has("ShiftLeft") ? 1 : 0)) * sp * dt;
     } else {
-      const sprint = keys.ShiftLeft || keys.ControlLeft ? 1.3 : 1;
+      const sprint = keys.has("ShiftLeft") || keys.has("ControlLeft") ? 1.3 : 1;
       const k = 1 - Math.exp(-(me.onGround ? GROUND_ACCEL : AIR_ACCEL) * dt);
       me.vel.x += (wx * SPEED * sprint - me.vel.x) * k;
       me.vel.z += (wz * SPEED * sprint - me.vel.z) * k;
       me.kb.multiplyScalar(Math.exp(-(me.onGround ? KB_DRAG_GROUND : KB_DRAG_AIR) * dt));
       me.vel.y = Math.max(me.vel.y - GRAVITY * dt, -30);
-      if (keys.Space && me.onGround) me.vel.y = JUMP;
+      if (keys.has("Space") && me.onGround) me.vel.y = JUMP;
 
       if (moveAxis(0, (me.vel.x + me.kb.x) * dt)) { me.vel.x = 0; me.kb.x = 0; }
       if (moveAxis(2, (me.vel.z + me.kb.y) * dt)) { me.vel.z = 0; me.kb.y = 0; }
