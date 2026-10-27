@@ -4,13 +4,13 @@ import { useEffect } from "react";
 import { Scene } from "./Scene";
 import { Hud } from "./Hud";
 import { connect } from "@/game/net";
-import { G, handleEvent, onRoster } from "@/game/engine";
+import { G, handleEvent, onPresence } from "@/game/engine";
 import { hud } from "@/game/store";
 
 export function SkyWarsGame({ room, name }: { room: string; name: string }) {
   useEffect(() => {
     G.name = name;
-    return connect(room, name, handleEvent, onRoster, (ok) => hud.set({ connected: ok }));
+    return connect(room, name, handleEvent, onPresence, (ok) => hud.set({ connected: ok }));
   }, [room, name]);
 
   return (
