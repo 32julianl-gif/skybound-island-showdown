@@ -14,6 +14,7 @@ export type NetState = {
   z: number;
   ry: number;
   alive: boolean;
+  c?: boolean;
 };
 
 export const G = {
