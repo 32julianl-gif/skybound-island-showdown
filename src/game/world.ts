@@ -56,40 +56,51 @@ function tree(w: World, x: number, z: number) {
 }
 
 export const MAX_PLAYERS = 8;
-const RING = 22;
-
-export const SPAWNS = Array.from({ length: MAX_PLAYERS }, (_, i) => {
-  const a = (i / MAX_PLAYERS) * Math.PI * 2;
-  return { x: Math.round(Math.cos(a) * RING), z: Math.round(Math.sin(a) * RING), a };
-});
-
-const MIDS = Array.from({ length: 4 }, (_, i) => {
-  const a = ((i * 2 + 1) / 8) * Math.PI * 2;
-  return { x: Math.round(Math.cos(a) * 11), z: Math.round(Math.sin(a) * 11) };
-});
 
 export type Chest = { id: number; x: number; y: number; z: number };
-export const CHESTS: Chest[] = [
-  ...SPAWNS.map((s, i) => ({
-    id: i,
-    x: s.x + Math.round(Math.cos(s.a + Math.PI / 2) * 2),
-    y: 1,
-    z: s.z + Math.round(Math.sin(s.a + Math.PI / 2) * 2),
-  })),
-  ...MIDS.map((m, i) => ({ id: 8 + i, x: m.x, y: 1, z: m.z })),
-  { id: 12, x: 2, y: 1, z: 0 },
-  { id: 13, x: -2, y: 1, z: 0 },
-  { id: 14, x: 0, y: 1, z: 2 },
-  { id: 15, x: 0, y: 1, z: -2 },
-];
+type MapCfg = { name: string; ring: number; spawnR: number; center: number; centerDepth: number; mids: number; midRing: number; midR: number; trees: [number, number][] };
 
-export function generateWorld() {
+const MAPS: MapCfg[] = [
+  { name: "Classic Isles", ring: 22, spawnR: 3.5, center: 6.5, centerDepth: 6, mids: 4, midRing: 11, midR: 2.6, trees: [[4, 4], [-4, -4]] },
+  { name: "Wide Sky", ring: 27, spawnR: 3, center: 8, centerDepth: 7, mids: 6, midRing: 15, midR: 2.2, trees: [[5, -3], [-5, 3], [0, 6]] },
+  { name: "Archipelago", ring: 19, spawnR: 3.2, center: 4, centerDepth: 4, mids: 8, midRing: 10, midR: 2, trees: [[2, -2]] },
+];
+export const MAP_COUNT = MAPS.length;
+
+export function mapDef(map: number) {
+  const m = MAPS[((map % MAPS.length) + MAPS.length) % MAPS.length]!;
+  const spawns = Array.from({ length: MAX_PLAYERS }, (_, i) => {
+    const a = (i / MAX_PLAYERS) * Math.PI * 2;
+    return { x: Math.round(Math.cos(a) * m.ring), z: Math.round(Math.sin(a) * m.ring), a };
+  });
+  const mids = Array.from({ length: m.mids }, (_, i) => {
+    const a = ((i * 2 + 1) / (m.mids * 2)) * Math.PI * 2;
+    return { x: Math.round(Math.cos(a) * m.midRing), z: Math.round(Math.sin(a) * m.midRing) };
+  });
+  const c = Math.max(2, Math.floor(m.center / 3));
+  const chests: Chest[] = [
+    ...spawns.map((s, i) => ({
+      id: i,
+      x: s.x + Math.round(Math.cos(s.a + Math.PI / 2) * 2),
+      y: 1,
+      z: s.z + Math.round(Math.sin(s.a + Math.PI / 2) * 2),
+    })),
+    ...mids.map((p, i) => ({ id: 8 + i, x: p.x, y: 1, z: p.z })),
+    { id: 20, x: c, y: 1, z: 0 },
+    { id: 21, x: -c, y: 1, z: 0 },
+    { id: 22, x: 0, y: 1, z: c },
+    { id: 23, x: 0, y: 1, z: -c },
+  ];
+  return { ...m, spawns, mids, chests };
+}
+
+export function generateWorld(map = 0) {
+  const d = mapDef(map);
   const w = new World();
-  island(w, 0, 0, 6.5, 6);
-  tree(w, 4, 4);
-  tree(w, -4, -4);
-  for (const m of MIDS) island(w, m.x, m.z, 2.6, 3);
-  for (const s of SPAWNS) island(w, s.x, s.z, 3.5, 4);
+  island(w, 0, 0, d.center, d.centerDepth);
+  for (const [x, z] of d.trees) tree(w, x, z);
+  for (const m of d.mids) island(w, m.x, m.z, d.midR, 3);
+  for (const s of d.spawns) island(w, s.x, s.z, d.spawnR, 4);
   return w;
 }
 
