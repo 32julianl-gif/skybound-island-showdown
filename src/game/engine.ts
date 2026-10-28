@@ -242,7 +242,7 @@ export function handleEvent(event: NetEvent, p: any) {
     }
     case "start": {
       G.round = p.round;
-      G.map = p.round % MAP_COUNT;
+      G.map = (p.round - 1) % MAP_COUNT;
       resetWorld();
       const ids: string[] = p.ids;
       G.alive = new Set(ids);
@@ -266,7 +266,7 @@ export function handleEvent(event: NetEvent, p: any) {
     }
     case "reset": {
       G.phase = "waiting";
-      G.map = (G.round + 1) % MAP_COUNT;
+      G.map = G.round % MAP_COUNT;
       resetWorld();
       G.alive.clear();
       me.spectator = false;
@@ -281,7 +281,7 @@ export function handleEvent(event: NetEvent, p: any) {
       if (G.synced || p.to !== playerId) return;
       G.synced = true;
       G.round = p.round;
-      G.map = p.phase === "waiting" ? (p.round + 1) % MAP_COUNT : p.round % MAP_COUNT;
+      G.map = p.phase === "waiting" ? p.round % MAP_COUNT : (p.round - 1) % MAP_COUNT;
       if (p.phase === "waiting") {
         resetWorld();
         teleportToSpawn(Math.max(0, G.spawnIdx));
