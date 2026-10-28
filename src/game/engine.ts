@@ -2,6 +2,9 @@ import * as THREE from "three";
 import { generateWorld, key, SPAWNS, BLOCK } from "./world";
 import { hud, pushFeed, type Phase } from "./store";
 import { playerId, send, type NetEvent } from "./net";
+import { addItem, armorReduction, chestLoot, CHEST_SIZE, INV_SIZE, type Slot } from "./items";
+
+export type Arrow = { id: number; from: string; p: THREE.Vector3; v: THREE.Vector3; stuck: number };
 
 export type NetState = {
   id: string;
@@ -29,6 +32,9 @@ export const G = {
   synced: false,
   spawnIdx: -1,
   endAt: 0,
+  chests: new Map<number, Slot[]>(),
+  ui: { open: null as null | "inv" | number, cursor: null as Slot },
+  arrows: [] as Arrow[],
   self: {
     pos: new THREE.Vector3(SPAWNS[0]!.x + 0.5, 1, SPAWNS[0]!.z + 0.5),
     vel: new THREE.Vector3(),
@@ -37,8 +43,10 @@ export const G = {
     pitch: 0,
     onGround: false,
     spectator: false,
-    blocks: 0,
-    sword: 0,
+    crouch: false,
+    inv: Array(INV_SIZE).fill(null) as Slot[],
+    armor: [null, null, null, null] as Slot[],
+    sel: 0,
     lastHitter: "",
     lastHitAt: -1e9,
   },
@@ -48,6 +56,48 @@ const sortedIds = () => G.roster.map((r) => r.id).sort();
 export const isHost = () => sortedIds()[0] === playerId;
 export const nameOf = (id: string) =>
   G.roster.find((r) => r.id === id)?.name ?? G.remotes.get(id)?.name ?? "Player";
+
+export function invChanged() {
+  hud.set({ invV: hud.get().invV + 1 });
+}
+
+export function getChest(id: number): Slot[] {
+  let c = G.chests.get(id);
+  if (!c) {
+    c = G.round > 0 ? chestLoot(G.round, id) : Array(CHEST_SIZE).fill(null);
+    G.chests.set(id, c);
+  }
+  return c;
+}
+
+export function setChestSlot(id: number, slot: number, item: Slot, broadcast: boolean) {
+  getChest(id)[slot] = item ? { ...item } : null;
+  invChanged();
+  if (broadcast) send("chest", { id, slot, item });
+}
+
+function resetInventory(withStarter: boolean) {
+  const me = G.self;
+  me.inv = Array(INV_SIZE).fill(null);
+  me.armor = [null, null, null, null];
+  me.sel = 0;
+  G.ui.cursor = null;
+  if (withStarter) {
+    addItem(me.inv, "wood_sword", 1);
+    addItem(me.inv, "b6", 16);
+  }
+  closeUi();
+  invChanged();
+}
+
+export function closeUi() {
+  if (G.ui.cursor) {
+    addItem(G.self.inv, G.ui.cursor.id, G.ui.cursor.n);
+    G.ui.cursor = null;
+  }
+  G.ui.open = null;
+  hud.set({ ui: null });
+}
 
 function bump() {
   hud.set({ version: hud.get().version + 1 });
@@ -67,6 +117,8 @@ function resetWorld() {
   G.world = generateWorld();
   G.edits.clear();
   G.opened.clear();
+  G.chests.clear();
+  G.arrows = [];
   hud.set({ opened: 0 });
   bump();
 }
@@ -90,8 +142,6 @@ function syncHud() {
     phase: G.phase,
     aliveIds: [...G.alive],
     spectator: G.self.spectator,
-    blocks: G.self.blocks,
-    sword: G.self.sword,
     isHost: isHost(),
   });
 }
@@ -126,6 +176,7 @@ export function die() {
   const me = G.self;
   const by = performance.now() - me.lastHitAt < 10000 ? me.lastHitter : "";
   me.spectator = true;
+  resetInventory(false);
   me.pos.set(0, 22, 12);
   me.vel.set(0, 0, 0);
   me.kb.set(0, 0);
@@ -149,11 +200,23 @@ export function handleEvent(event: NetEvent, p: any) {
       break;
     case "chest":
       openChest(p.id, false);
+      if (typeof p.slot === "number") setChestSlot(p.id, p.slot, p.item ?? null, false);
+      break;
+    case "arrow":
+      if (p.from === playerId) return;
+      G.arrows.push({
+        id: p.id,
+        from: p.from,
+        p: new THREE.Vector3(p.x, p.y, p.z),
+        v: new THREE.Vector3(p.vx, p.vy, p.vz),
+        stuck: -1,
+      });
       break;
     case "hit": {
       if (p.target !== playerId || G.phase !== "playing" || me.spectator) return;
-      me.kb.x += p.dx * p.power;
-      me.kb.y += p.dz * p.power;
+      const k = 1 - armorReduction(me.armor);
+      me.kb.x += p.dx * p.power * k;
+      me.kb.y += p.dz * p.power * k;
       me.vel.y = Math.max(me.vel.y, 6.5);
       me.lastHitter = p.from;
       me.lastHitAt = performance.now();
@@ -184,8 +247,7 @@ export function handleEvent(event: NetEvent, p: any) {
       const idx = ids.indexOf(playerId);
       if (idx >= 0) {
         me.spectator = false;
-        me.blocks = 16;
-        me.sword = 0;
+        resetInventory(true);
         me.lastHitter = "";
         teleportToSpawn(idx);
         pushFeed("Round started — knock everyone off!");
@@ -201,8 +263,7 @@ export function handleEvent(event: NetEvent, p: any) {
       resetWorld();
       G.alive.clear();
       me.spectator = false;
-      me.blocks = 0;
-      me.sword = 0;
+      resetInventory(false);
       G.spawnIdx = sortedIds().indexOf(playerId);
       teleportToSpawn(G.spawnIdx);
       hud.set({ winner: "" });
@@ -221,6 +282,7 @@ export function handleEvent(event: NetEvent, p: any) {
         G.edits.set(k, t);
       }
       for (const id of p.opened as number[]) G.opened.add(id);
+      for (const [id, c] of (p.chests ?? []) as [number, Slot[]][]) G.chests.set(id, c);
       hud.set({ opened: G.opened.size });
       G.alive = new Set(p.alive);
       G.startCount = p.startCount;
@@ -272,6 +334,7 @@ function onRoster(list: { id: string; name: string }[]) {
         alive: [...G.alive],
         startCount: G.startCount,
         opened: [...G.opened],
+        chests: [...G.chests.entries()],
         edits: [...G.edits.entries()],
       });
     }

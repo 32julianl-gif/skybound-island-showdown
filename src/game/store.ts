@@ -9,8 +9,10 @@ export type HudState = {
   roster: { id: string; name: string }[];
   aliveIds: string[];
   isHost: boolean;
-  blocks: number;
-  sword: number;
+  invV: number;
+  ui: null | "inv" | number;
+  breakProgress: number;
+  bowCharge: number;
   feed: FeedItem[];
   winner: string;
   locked: boolean;
@@ -26,8 +28,10 @@ let state: HudState = {
   roster: [],
   aliveIds: [],
   isHost: false,
-  blocks: 0,
-  sword: 0,
+  invV: 0,
+  ui: null,
+  breakProgress: 0,
+  bowCharge: 0,
   feed: [],
   winner: "",
   locked: false,
@@ -63,5 +67,3 @@ export function pushFeed(text: string) {
   setTimeout(() => hud.set({ feed: hud.get().feed.filter((f) => f.id !== item.id) }), 6000);
 }
 
-export const SWORDS = ["Fists", "Wood Sword", "Stone Sword", "Iron Sword"];
-export const SWORD_POWER = [7, 10, 13, 16];
