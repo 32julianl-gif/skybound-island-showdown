@@ -10,6 +10,7 @@ export type HudState = {
   aliveIds: string[];
   isHost: boolean;
   invV: number;
+  mapName: string;
   ui: null | "inv" | number;
   breakProgress: number;
   bowCharge: number;
@@ -29,6 +30,7 @@ let state: HudState = {
   aliveIds: [],
   isHost: false,
   invV: 0,
+  mapName: "Classic Isles",
   ui: null,
   breakProgress: 0,
   bowCharge: 0,

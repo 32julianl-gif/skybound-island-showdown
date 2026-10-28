@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { generateWorld, key, SPAWNS, BLOCK } from "./world";
+import { generateWorld, key, mapDef, MAP_COUNT, BLOCK } from "./world";
 import { hud, pushFeed, type Phase } from "./store";
 import { playerId, send, type NetEvent } from "./net";
 import { addItem, armorReduction, chestLoot, CHEST_SIZE, INV_SIZE, type Slot } from "./items";
@@ -18,7 +18,8 @@ export type NetState = {
 
 export const G = {
   name: "",
-  world: generateWorld(),
+  world: generateWorld(0),
+  map: 0,
   edits: new Map<string, number>(),
   opened: new Set<number>(),
   phase: "waiting" as Phase,
@@ -36,7 +37,7 @@ export const G = {
   ui: { open: null as null | "inv" | number, cursor: null as Slot },
   arrows: [] as Arrow[],
   self: {
-    pos: new THREE.Vector3(SPAWNS[0]!.x + 0.5, 1, SPAWNS[0]!.z + 0.5),
+    pos: new THREE.Vector3(22.5, 1, 0.5),
     vel: new THREE.Vector3(),
     kb: new THREE.Vector2(),
     yaw: 0,
@@ -104,7 +105,10 @@ function bump() {
 }
 
 export function teleportToSpawn(i: number) {
-  const s = SPAWNS[((i % SPAWNS.length) + SPAWNS.length) % SPAWNS.length]!;
+  const sp = mapDef(G.map).spawns;
+  // spawn spots rotate every round
+  const j = i + G.round * 3;
+  const s = sp[((j % sp.length) + sp.length) % sp.length]!;
   const me = G.self;
   me.pos.set(s.x + 0.5, 1, s.z + 0.5);
   me.vel.set(0, 0, 0);
@@ -114,7 +118,8 @@ export function teleportToSpawn(i: number) {
 }
 
 function resetWorld() {
-  G.world = generateWorld();
+  G.world = generateWorld(G.map);
+  hud.set({ mapName: mapDef(G.map).name });
   G.edits.clear();
   G.opened.clear();
   G.chests.clear();
@@ -237,6 +242,7 @@ export function handleEvent(event: NetEvent, p: any) {
     }
     case "start": {
       G.round = p.round;
+      G.map = p.round % MAP_COUNT;
       resetWorld();
       const ids: string[] = p.ids;
       G.alive = new Set(ids);
@@ -260,6 +266,7 @@ export function handleEvent(event: NetEvent, p: any) {
     }
     case "reset": {
       G.phase = "waiting";
+      G.map = (G.round + 1) % MAP_COUNT;
       resetWorld();
       G.alive.clear();
       me.spectator = false;
@@ -273,8 +280,13 @@ export function handleEvent(event: NetEvent, p: any) {
     case "sync": {
       if (G.synced || p.to !== playerId) return;
       G.synced = true;
-      if (p.phase === "waiting") return;
       G.round = p.round;
+      G.map = p.phase === "waiting" ? (p.round + 1) % MAP_COUNT : p.round % MAP_COUNT;
+      if (p.phase === "waiting") {
+        resetWorld();
+        teleportToSpawn(Math.max(0, G.spawnIdx));
+        return;
+      }
       resetWorld();
       for (const [k, t] of p.edits as [string, number][]) {
         const [x = 0, y = 0, z = 0] = k.split(",").map(Number);
