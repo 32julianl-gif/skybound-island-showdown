@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { useHud, SWORDS } from "@/game/store";
-import { startRound } from "@/game/engine";
+import { useHud } from "@/game/store";
+import { G, startRound } from "@/game/engine";
+import { def } from "@/game/items";
 import { playerId } from "@/game/net";
 
 export function Hud({ room }: { room: string }) {
@@ -8,8 +9,8 @@ export function Hud({ room }: { room: string }) {
   const roster = useHud((s) => s.roster);
   const aliveIds = useHud((s) => s.aliveIds);
   const isHost = useHud((s) => s.isHost);
-  const blocks = useHud((s) => s.blocks);
-  const sword = useHud((s) => s.sword);
+  useHud((s) => s.invV);
+  const mapName = useHud((s) => s.mapName);
   const feed = useHud((s) => s.feed);
   const winner = useHud((s) => s.winner);
   const locked = useHud((s) => s.locked);
@@ -46,6 +47,8 @@ export function Hud({ room }: { room: string }) {
         <div className="flex items-center justify-between gap-3">
           <span className="text-muted-foreground">ROOM</span>
           <span className="text-primary">{room}</span>
+        </div>
+        <div className="text-xs text-muted-foreground">Map: {mapName}
         </div>
         <div className="mt-1 text-xs text-muted-foreground">
           {connected ? `${roster.length}/8 players` : "Connecting…"}
@@ -103,14 +106,12 @@ export function Hud({ room }: { room: string }) {
       {/* hotbar */}
       {!spectator && (
         <div className="absolute bottom-5 left-1/2 flex -translate-x-1/2 gap-2">
-          <div className="pixel-slot">
-            <span className="wool-swatch" />
-            <span>{blocks}</span>
-          </div>
-          <div className="pixel-slot">
-            <span className="text-primary">⚔</span>
-            <span>{SWORDS[sword]}</span>
-          </div>
+          {G.self.inv.slice(0, 9).map((it, i) => (
+            <div key={i} className="pixel-slot" style={i === G.self.sel ? { borderColor: "var(--primary)" } : undefined}>
+              <span>{it ? def(it.id).icon : ""}</span>
+              <span className="text-xs">{it && it.n > 1 ? it.n : ""}</span>
+            </div>
+          ))}
         </div>
       )}
 
