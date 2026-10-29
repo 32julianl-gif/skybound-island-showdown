@@ -3,6 +3,7 @@ import { Environment, Lightformer } from "@react-three/drei";
 import { useEffect } from "react";
 import { Scene } from "./Scene";
 import { Hud } from "./Hud";
+import { InventoryScreen } from "./InventoryScreen";
 import { connect } from "@/game/net";
 import { G, handleEvent, onPresence } from "@/game/engine";
 import { hud } from "@/game/store";
@@ -39,6 +40,7 @@ export function SkyWarsGame({ room, name }: { room: string; name: string }) {
         <Scene />
       </Canvas>
       <Hud room={room} />
+      <InventoryScreen />
     </div>
   );
 }
