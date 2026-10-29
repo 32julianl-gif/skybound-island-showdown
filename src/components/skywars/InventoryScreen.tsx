@@ -28,7 +28,7 @@ function clickSlot(get: () => Slot, set: (s: Slot) => void) {
 
 function clickArmor(part: number) {
   const cur = G.ui.cursor;
-  const worn = G.self.armor[part];
+  const worn = G.self.armor[part] ?? null;
   if (cur) {
     const a = def(cur.id).armor;
     if (!a || a.part !== part) return; // only the matching piece fits
