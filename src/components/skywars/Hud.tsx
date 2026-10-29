@@ -17,6 +17,7 @@ export function Hud({ room }: { room: string }) {
   const hurt = useHud((s) => s.hurt);
   const spectator = useHud((s) => s.spectator);
   const connected = useHud((s) => s.connected);
+  const uiOpen = useHud((s) => s.ui) !== null;
   const [copied, setCopied] = useState(false);
   const [flash, setFlash] = useState(false);
 
@@ -38,9 +39,11 @@ export function Hud({ room }: { room: string }) {
       {flash && <div className="hurt-vignette absolute inset-0" />}
 
       {/* crosshair */}
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl leading-none text-shadow-pixel">
-        +
-      </div>
+      {!uiOpen && (
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl leading-none text-shadow-pixel">
+          +
+        </div>
+      )}
 
       {/* top-left: room + players */}
       <div className="pixel-panel absolute left-4 top-4 min-w-52 p-3 text-sm">
@@ -116,16 +119,18 @@ export function Hud({ room }: { room: string }) {
       )}
 
       {/* click to play */}
-      {!locked && (
+      {!locked && !uiOpen && (
         <div className="absolute inset-x-0 bottom-24 flex justify-center">
           <div className="pixel-panel max-w-md p-4 text-center text-sm">
             <div className="mb-2 text-lg text-primary">CLICK TO PLAY</div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-left text-xs">
               <span className="text-muted-foreground">WASD</span><span>Move</span>
               <span className="text-muted-foreground">Space</span><span>Jump</span>
+              <span className="text-muted-foreground">Shift</span><span>Sprint</span>
+              <span className="text-muted-foreground">C</span><span>Crouch (safe bridging)</span>
               <span className="text-muted-foreground">Left click</span><span>Hit player / break block</span>
-              <span className="text-muted-foreground">Right click</span><span>Place block</span>
-              <span className="text-muted-foreground">E</span><span>Open chest</span>
+              <span className="text-muted-foreground">Right click</span><span>Place block / shoot bow</span>
+              <span className="text-muted-foreground">E</span><span>Inventory / open chest</span>
               <span className="text-muted-foreground">Esc</span><span>Release mouse</span>
             </div>
           </div>
