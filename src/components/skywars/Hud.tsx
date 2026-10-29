@@ -107,7 +107,7 @@ export function Hud({ room }: { room: string }) {
       )}
 
       {/* hotbar */}
-      {!spectator && (
+      {!spectator && !uiOpen && (
         <div className="absolute bottom-5 left-1/2 flex -translate-x-1/2 gap-2">
           {G.self.inv.slice(0, 9).map((it, i) => (
             <div key={i} className="pixel-slot" style={i === G.self.sel ? { borderColor: "var(--primary)" } : undefined}>
