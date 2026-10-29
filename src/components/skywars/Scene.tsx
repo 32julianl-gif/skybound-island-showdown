@@ -366,7 +366,7 @@ export function heldItem() {
   return G.self.inv[G.self.sel] ?? null;
 }
 
-function lockPointer() {
+export function lockPointer() {
   const c = document.querySelector("canvas");
   c?.requestPointerLock?.();
 }
@@ -493,15 +493,15 @@ function PlayerController() {
       me.pos.y += ((keys.has("Space") ? 1 : 0) - (keys.has("ShiftLeft") ? 1 : 0)) * sp * dt;
       me.crouch = false;
     } else {
-      // crouch (Shift): slow, lower, can't walk off edges
-      const wantCrouch = keys.has("ShiftLeft") || keys.has("ShiftRight");
+      // crouch (C): slow, lower, can't walk off edges
+      const wantCrouch = keys.has("KeyC");
       if (wantCrouch) me.crouch = true;
       else if (me.crouch) {
         me.crouch = false;
         if (collides(me.pos, HEIGHT)) me.crouch = true; // no room to stand
       }
-      // sprint: Ctrl or double-tap W; stops when not moving forward or crouching
-      if (keys.has("ControlLeft") || keys.has("ControlRight")) sprinting.current = true;
+      // sprint: Shift or double-tap W; stops when not moving forward or crouching
+      if (keys.has("ShiftLeft") || keys.has("ShiftRight")) sprinting.current = true;
       if (fwdIn <= 0 || me.crouch) sprinting.current = false;
       const speed = SPEED * (me.crouch ? CROUCH_MULT : sprinting.current ? SPRINT_MULT : 1);
       const k = 1 - Math.exp(-(me.onGround ? GROUND_ACCEL : AIR_ACCEL) * dt);

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useHud } from "@/game/store";
 import { G, startRound } from "@/game/engine";
+import { lockPointer } from "./Scene";
 import { def } from "@/game/items";
 import { playerId } from "@/game/net";
 
@@ -17,6 +18,7 @@ export function Hud({ room }: { room: string }) {
   const hurt = useHud((s) => s.hurt);
   const spectator = useHud((s) => s.spectator);
   const connected = useHud((s) => s.connected);
+  const uiOpen = useHud((s) => s.ui) !== null;
   const [copied, setCopied] = useState(false);
   const [flash, setFlash] = useState(false);
 
@@ -38,9 +40,11 @@ export function Hud({ room }: { room: string }) {
       {flash && <div className="hurt-vignette absolute inset-0" />}
 
       {/* crosshair */}
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl leading-none text-shadow-pixel">
-        +
-      </div>
+      {!uiOpen && (
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl leading-none text-shadow-pixel">
+          +
+        </div>
+      )}
 
       {/* top-left: room + players */}
       <div className="pixel-panel absolute left-4 top-4 min-w-52 p-3 text-sm">
@@ -104,7 +108,7 @@ export function Hud({ room }: { room: string }) {
       )}
 
       {/* hotbar */}
-      {!spectator && (
+      {!spectator && !uiOpen && (
         <div className="absolute bottom-5 left-1/2 flex -translate-x-1/2 gap-2">
           {G.self.inv.slice(0, 9).map((it, i) => (
             <div key={i} className="pixel-slot" style={i === G.self.sel ? { borderColor: "var(--primary)" } : undefined}>
@@ -115,19 +119,25 @@ export function Hud({ room }: { room: string }) {
         </div>
       )}
 
-      {/* click to play */}
-      {!locked && (
-        <div className="absolute inset-x-0 bottom-24 flex justify-center">
-          <div className="pixel-panel max-w-md p-4 text-center text-sm">
-            <div className="mb-2 text-lg text-primary">CLICK TO PLAY</div>
+      {/* Esc menu: controls + resume */}
+      {!locked && !uiOpen && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background/40">
+          <div className="pixel-panel w-full max-w-md p-5 text-center text-sm">
+            <div className="mb-3 text-2xl text-primary text-shadow-pixel">MENU</div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-left text-xs">
               <span className="text-muted-foreground">WASD</span><span>Move</span>
               <span className="text-muted-foreground">Space</span><span>Jump</span>
+              <span className="text-muted-foreground">Shift</span><span>Sprint</span>
+              <span className="text-muted-foreground">C</span><span>Crouch (safe bridging)</span>
               <span className="text-muted-foreground">Left click</span><span>Hit player / break block</span>
-              <span className="text-muted-foreground">Right click</span><span>Place block</span>
-              <span className="text-muted-foreground">E</span><span>Open chest</span>
-              <span className="text-muted-foreground">Esc</span><span>Release mouse</span>
+              <span className="text-muted-foreground">Right click</span><span>Place block / shoot bow</span>
+              <span className="text-muted-foreground">E</span><span>Inventory / open chest</span>
+              <span className="text-muted-foreground">1–9 / wheel</span><span>Pick hotbar slot</span>
+              <span className="text-muted-foreground">Esc</span><span>This menu</span>
             </div>
+            <button onClick={lockPointer} className="pixel-btn pixel-btn-primary pointer-events-auto mt-4 w-full">
+              Resume (click)
+            </button>
           </div>
         </div>
       )}
