@@ -366,7 +366,7 @@ export function heldItem() {
   return G.self.inv[G.self.sel] ?? null;
 }
 
-function lockPointer() {
+export function lockPointer() {
   const c = document.querySelector("canvas");
   c?.requestPointerLock?.();
 }

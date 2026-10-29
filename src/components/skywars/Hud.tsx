@@ -118,11 +118,11 @@ export function Hud({ room }: { room: string }) {
         </div>
       )}
 
-      {/* click to play */}
+      {/* Esc menu: controls + resume */}
       {!locked && !uiOpen && (
-        <div className="absolute inset-x-0 bottom-24 flex justify-center">
-          <div className="pixel-panel max-w-md p-4 text-center text-sm">
-            <div className="mb-2 text-lg text-primary">CLICK TO PLAY</div>
+        <div className="absolute inset-0 flex items-center justify-center bg-background/40">
+          <div className="pixel-panel w-full max-w-md p-5 text-center text-sm">
+            <div className="mb-3 text-2xl text-primary text-shadow-pixel">MENU</div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-left text-xs">
               <span className="text-muted-foreground">WASD</span><span>Move</span>
               <span className="text-muted-foreground">Space</span><span>Jump</span>
@@ -131,8 +131,12 @@ export function Hud({ room }: { room: string }) {
               <span className="text-muted-foreground">Left click</span><span>Hit player / break block</span>
               <span className="text-muted-foreground">Right click</span><span>Place block / shoot bow</span>
               <span className="text-muted-foreground">E</span><span>Inventory / open chest</span>
-              <span className="text-muted-foreground">Esc</span><span>Release mouse</span>
+              <span className="text-muted-foreground">1–9 / wheel</span><span>Pick hotbar slot</span>
+              <span className="text-muted-foreground">Esc</span><span>This menu</span>
             </div>
+            <button onClick={lockPointer} className="pixel-btn pixel-btn-primary pointer-events-auto mt-4 w-full">
+              Resume (click)
+            </button>
           </div>
         </div>
       )}
