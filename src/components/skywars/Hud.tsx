@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useHud } from "@/game/store";
 import { G, startRound } from "@/game/engine";
+import { lockPointer } from "./Scene";
 import { def } from "@/game/items";
 import { playerId } from "@/game/net";
 
