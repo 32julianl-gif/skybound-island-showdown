@@ -4,13 +4,23 @@ import { useEffect } from "react";
 import { Scene } from "./Scene";
 import { Hud } from "./Hud";
 import { InventoryScreen } from "./InventoryScreen";
-import { connect } from "@/game/net";
-import { G, handleEvent, onPresence } from "@/game/engine";
+import { Chat } from "./Chat";
+import { connect, playerId, send } from "@/game/net";
+import { G, handleEvent, onPresence, startRound } from "@/game/engine";
 import { hud } from "@/game/store";
 
 export function SkyWarsGame({ room, name }: { room: string; name: string }) {
   useEffect(() => {
     G.name = name;
+    if (import.meta.env.DEV) {
+      const debugWindow = window as typeof window & { __game?: unknown };
+      debugWindow.__game = {
+        get state() { return { id: playerId, phase: G.phase, health: G.self.health, armor: G.self.armor, roster: G.roster, position: G.self.pos.toArray(), chat: hud.get().chat, spectator: G.self.spectator }; },
+        startRound,
+        hit(target: string, damage = 4) { send("hit", { from: playerId, target, damage, power: 10, dx: 1, dz: 0, round: G.round }); },
+        equip(ids: string[]) { G.self.armor = ids.map((id) => ({ id, n: 1 })); hud.set({ invV: hud.get().invV + 1 }); },
+      };
+    }
     return connect(room, name, handleEvent, onPresence, (ok) => hud.set({ connected: ok }));
   }, [room, name]);
 
@@ -41,6 +51,7 @@ export function SkyWarsGame({ room, name }: { room: string; name: string }) {
       </Canvas>
       <Hud room={room} />
       <InventoryScreen />
+      <Chat />
     </div>
   );
 }

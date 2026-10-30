@@ -2,7 +2,9 @@ import * as THREE from "three";
 import { generateWorld, key, mapDef, MAP_COUNT, BLOCK } from "./world";
 import { hud, pushFeed, type Phase } from "./store";
 import { playerId, send, type NetEvent } from "./net";
-import { addItem, armorReduction, chestLoot, CHEST_SIZE, INV_SIZE, type Slot } from "./items";
+import { addItem, chestLoot, CHEST_SIZE, INV_SIZE, type Slot } from "./items";
+import { MAX_HEALTH, HIT_LIFT, healthAfterHit, knockbackAfterArmor } from "./combat";
+import { CHAT_COOLDOWN_MS, CHAT_HISTORY_LIMIT, cleanChatText } from "./chat";
 
 export type Arrow = { id: number; from: string; p: THREE.Vector3; v: THREE.Vector3; stuck: number };
 
@@ -15,6 +17,7 @@ export type NetState = {
   ry: number;
   alive: boolean;
   c?: boolean;
+  hp?: number;
 };
 
 export const G = {
@@ -37,7 +40,10 @@ export const G = {
   chests: new Map<number, Slot[]>(),
   ui: { open: null as null | "inv" | number, cursor: null as Slot },
   arrows: [] as Arrow[],
+  lastChatAt: -Infinity,
+  chatSeen: new Map<string, number>(),
   self: {
+    health: MAX_HEALTH,
     pos: new THREE.Vector3(22.5, 1, 0.5),
     vel: new THREE.Vector3(),
     kb: new THREE.Vector2(),
@@ -101,6 +107,30 @@ export function closeUi() {
   hud.set({ ui: null });
 }
 
+export function openChat() {
+  closeUi();
+  hud.set({ chatOpen: true });
+  document.exitPointerLock?.();
+}
+
+export function sendChat(text: string): boolean {
+  const cleaned = cleanChatText(text);
+  const now = performance.now();
+  if (!cleaned || !hud.get().connected || now - G.lastChatAt < CHAT_COOLDOWN_MS) return false;
+  G.lastChatAt = now;
+  const payload = { id: crypto.randomUUID(), from: playerId, text: cleaned };
+  handleEvent("chat", payload);
+  send("chat", payload);
+  return true;
+}
+
+function resetHealth() {
+  G.self.health = MAX_HEALTH;
+  G.self.lastHitter = "";
+  G.self.lastHitAt = -1e9;
+  hud.set({ health: MAX_HEALTH });
+}
+
 function bump() {
   hud.set({ version: hud.get().version + 1 });
 }
@@ -149,6 +179,7 @@ function syncHud() {
     aliveIds: [...G.alive],
     spectator: G.self.spectator,
     isHost: isHost(),
+    health: G.self.health,
   });
 }
 
@@ -178,15 +209,17 @@ export function hostTick() {
   }
 }
 
-export function die() {
+export function die(cause: "void" | "combat" = "void") {
   const me = G.self;
+  if (G.phase !== "playing" || me.spectator || !G.alive.has(playerId)) return;
   const by = performance.now() - me.lastHitAt < 10000 ? me.lastHitter : "";
   me.spectator = true;
+  me.health = 0;
   resetInventory(false);
   me.pos.set(0, 22, 12);
   me.vel.set(0, 0, 0);
   me.kb.set(0, 0);
-  const payload = { id: playerId, by };
+  const payload = { id: playerId, by, cause };
   send("dead", payload);
   handleEvent("dead", payload);
 }
@@ -194,6 +227,18 @@ export function die() {
 export function handleEvent(event: NetEvent, p: any) {
   const me = G.self;
   switch (event) {
+    case "chat": {
+      if (!p || typeof p.id !== "string" || p.id.length > 64 || typeof p.from !== "string") return;
+      const sender = G.roster.find((r) => r.id === p.from);
+      const text = cleanChatText(p.text);
+      if (!sender || !text || hud.get().chat.some((m) => m.id === p.id)) return;
+      const now = performance.now();
+      const last = G.chatSeen.get(p.from) ?? -Infinity;
+      if (now - last < CHAT_COOLDOWN_MS) return;
+      G.chatSeen.set(p.from, now);
+      hud.set({ chat: [...hud.get().chat, { id: p.id, from: p.from, name: sender.name, text }].slice(-CHAT_HISTORY_LIMIT) });
+      break;
+    }
     case "state": {
       G.remotes.set(p.id, p as NetState);
       const known = G.roster.some((r) => r.id === p.id);
@@ -220,20 +265,26 @@ export function handleEvent(event: NetEvent, p: any) {
       break;
     case "hit": {
       if (p.target !== playerId || G.phase !== "playing" || me.spectator) return;
-      const k = 1 - armorReduction(me.armor);
-      me.kb.x += p.dx * p.power * k;
-      me.kb.y += p.dz * p.power * k;
-      me.vel.y = Math.max(me.vel.y, 6.5);
+      if (p.from === playerId || !G.alive.has(p.from) || p.round !== G.round) return;
+      if (![p.dx, p.dz, p.power, p.damage].every(Number.isFinite) || p.power < 0 || p.power > 22 || p.damage <= 0 || p.damage > 10) return;
+      const power = knockbackAfterArmor(p.power, me.armor);
+      me.kb.x += Math.max(-1, Math.min(1, p.dx)) * power;
+      me.kb.y += Math.max(-1, Math.min(1, p.dz)) * power;
+      me.vel.y = Math.max(me.vel.y, HIT_LIFT);
+      me.health = healthAfterHit(me.health, p.damage, me.armor);
       me.lastHitter = p.from;
       me.lastHitAt = performance.now();
-      hud.set({ hurt: Date.now() });
+      hud.set({ hurt: Date.now(), health: me.health });
+      if (me.health <= 0) die("combat");
       break;
     }
     case "dead": {
       if (!G.alive.has(p.id)) return;
       G.alive.delete(p.id);
       pushFeed(
-        p.by
+        p.cause === "combat"
+          ? `${nameOf(p.id)} was defeated by ${nameOf(p.by)}`
+          : p.by
           ? `${nameOf(p.id)} was knocked into the void by ${nameOf(p.by)}`
           : `${nameOf(p.id)} fell into the void`,
       );
@@ -249,6 +300,7 @@ export function handleEvent(event: NetEvent, p: any) {
       G.alive = new Set(ids);
       G.startCount = ids.length;
       G.phase = "playing";
+      resetHealth();
       G.synced = true;
       hud.set({ winner: "" });
       const idx = ids.indexOf(playerId);
@@ -267,6 +319,7 @@ export function handleEvent(event: NetEvent, p: any) {
     }
     case "reset": {
       G.phase = "waiting";
+      resetHealth();
       G.map = G.round % MAP_COUNT;
       resetWorld();
       G.alive.clear();
@@ -334,6 +387,7 @@ function onRoster(list: { id: string; name: string }[]) {
   G.roster = list;
   const ids = new Set(list.map((r) => r.id));
   for (const id of [...G.remotes.keys()]) if (!ids.has(id)) G.remotes.delete(id);
+  for (const id of G.chatSeen.keys()) if (!ids.has(id)) G.chatSeen.delete(id);
   if (list.length === 1 && list[0]!.id === playerId) G.synced = true;
 
   // host brings late joiners up to date

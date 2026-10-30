@@ -4,10 +4,11 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { BLOCK_TYPES, mapDef, raycast } from "@/game/world";
 import { getBlockMaterials, getChestMaterials } from "@/game/textures";
-import { G, applyBlock, closeUi, die, hostTick, invChanged, refreshRoster, openChest, startRound, teleportToSpawn } from "@/game/engine";
+import { G, applyBlock, closeUi, die, hostTick, invChanged, refreshRoster, openChat, openChest, startRound, teleportToSpawn } from "@/game/engine";
 import { hud, pushFeed, useHud } from "@/game/store";
 import { addItem, BREAK_TIME, countItem, def, FIST_POWER, removeItem } from "@/game/items";
 import { playerId, send } from "@/game/net";
+import { arrowDamage, meleeDamage } from "@/game/combat";
 
 // ---------- feel constants ----------
 const SPEED = 5.2;
@@ -264,7 +265,7 @@ function Arrows() {
           if (Math.abs(next.x - r.x) < 0.45 && Math.abs(next.z - r.z) < 0.45 && next.y > r.y && next.y < r.y + 1.9) {
             const hl = Math.hypot(a.v.x, a.v.z) || 1;
             const power = Math.min(14, a.v.length() * 0.45);
-            send("hit", { from: playerId, target: id, dx: a.v.x / hl, dz: a.v.z / hl, power });
+            send("hit", { from: playerId, target: id, dx: a.v.x / hl, dz: a.v.z / hl, power, damage: arrowDamage(a.v.length()), round: G.round });
             pushFeed(`Arrow hit ${r.name}!`);
             a.stuck = now - 2900;
             break;
@@ -367,6 +368,7 @@ export function heldItem() {
 }
 
 export function lockPointer() {
+  if (hud.get().chatOpen) return;
   const c = document.querySelector("canvas");
   c?.requestPointerLock?.();
 }
@@ -396,7 +398,7 @@ function PlayerController() {
   useEffect(() => {
     const el = gl.domElement;
     const onClick = () => {
-      if (!document.pointerLockElement && G.ui.open === null) el.requestPointerLock?.();
+      if (!document.pointerLockElement && G.ui.open === null && !hud.get().chatOpen) el.requestPointerLock?.();
     };
     const onLock = () => {
       const locked = document.pointerLockElement === el;
@@ -404,12 +406,12 @@ function PlayerController() {
       hud.set({ locked });
     };
     const onMove = (e: MouseEvent) => {
-      if (document.pointerLockElement !== el) return;
+      if (document.pointerLockElement !== el || hud.get().chatOpen) return;
       G.self.yaw -= e.movementX * 0.0022;
       G.self.pitch = Math.max(-1.55, Math.min(1.55, G.self.pitch - e.movementY * 0.0022));
     };
     const onDown = (e: MouseEvent) => {
-      if (document.pointerLockElement !== el) return;
+      if (document.pointerLockElement !== el || hud.get().chatOpen) return;
       if (e.button === 0) { mouse.current.left = true; actions.push("attack"); }
       if (e.button === 2) {
         mouse.current.right = true;
@@ -422,12 +424,21 @@ function PlayerController() {
       if (e.button === 2 && mouse.current.right) { mouse.current.right = false; actions.push("release"); }
     };
     const onWheel = (e: WheelEvent) => {
-      if (document.pointerLockElement !== el) return;
+      if (document.pointerLockElement !== el || hud.get().chatOpen) return;
       G.self.sel = (G.self.sel + (e.deltaY > 0 ? 1 : 8)) % 9;
       invChanged();
     };
     const onKeyDown = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement)?.tagName === "INPUT") return;
+      if ((e.target as HTMLElement)?.closest("input, textarea, [contenteditable=true]")) return;
+      if (hud.get().chatOpen) return;
+      if (e.code === "KeyT" && !e.repeat) {
+        e.preventDefault();
+        keys.clear(); actions.length = 0;
+        mouse.current.left = false; mouse.current.right = false;
+        sprinting.current = false;
+        openChat();
+        return;
+      }
       if (e.code === "KeyE" || (e.code === "Escape" && G.ui.open !== null)) {
         actions.push("ui");
         return;
@@ -477,6 +488,12 @@ function PlayerController() {
 
   useFrame(({ clock }, raw) => {
     const dt = Math.min(raw, 0.05);
+    gl.domElement.parentElement?.setAttribute("data-scene-ready", "1");
+    if (hud.get().chatOpen) {
+      keys.clear(); actions.length = 0;
+      mouse.current.left = false; mouse.current.right = false;
+      sprinting.current = false;
+    }
     const me = G.self;
     const fwdIn = (keys.has("KeyW") || keys.has("ArrowUp") ? 1 : 0) - (keys.has("KeyS") || keys.has("ArrowDown") ? 1 : 0);
     const rightIn = (keys.has("KeyD") || keys.has("ArrowRight") ? 1 : 0) - (keys.has("KeyA") || keys.has("ArrowLeft") ? 1 : 0);
@@ -541,14 +558,15 @@ function PlayerController() {
     const pc = camera as THREE.PerspectiveCamera;
     if (Math.abs(pc.fov - fovT) > 0.1) { pc.fov += (fovT - pc.fov) * (1 - Math.exp(-8 * dt)); pc.updateProjectionMatrix(); }
 
-    const canAct = G.phase === "playing" && !me.spectator && G.ui.open === null;
+    const canAct = G.phase === "playing" && !me.spectator && G.ui.open === null && !hud.get().chatOpen;
     const held = heldItem();
     camera.getWorldDirection(look);
 
     // actions
     cooldown.current -= dt;
     while (actions.length) {
-      const a = actions.shift()!;
+      const a = actions.shift();
+      if (!a) continue;
       if (a === "ui") {
         if (G.ui.open !== null) { toggleUi(null); continue; }
         if (me.spectator) continue;
@@ -578,7 +596,7 @@ function PlayerController() {
           const hl = Math.hypot(look.x, look.z) || 1;
           const power = (held ? def(held.id).power : undefined) ?? FIST_POWER;
           const crit = !me.onGround && me.vel.y < 0 ? 1.25 : sprinting.current ? 1.15 : 1;
-          send("hit", { from: playerId, target: best, dx: look.x / hl, dz: look.z / hl, power: power * crit });
+          send("hit", { from: playerId, target: best, dx: look.x / hl, dz: look.z / hl, power: power * crit, damage: meleeDamage(held?.id) * crit, round: G.round });
         }
       } else if (a === "use") {
         if (held?.id === "bow") continue; // charge handled below
@@ -654,7 +672,7 @@ function PlayerController() {
       const stale = clock.elapsedTime - l.at > 1;
       if (moved || stale) {
         last.current = { x, y, z, ry, a, c, at: clock.elapsedTime };
-        send("state", { id: playerId, name: G.name, x, y, z, ry, alive: a, c });
+        send("state", { id: playerId, name: G.name, x, y, z, ry, alive: a, c, hp: me.health });
       }
     }
 
