@@ -4,6 +4,7 @@ import { G, startRound } from "@/game/engine";
 import { lockPointer } from "./Scene";
 import { def } from "@/game/items";
 import { playerId } from "@/game/net";
+import { MAX_HEALTH } from "@/game/combat";
 
 export function Hud({ room }: { room: string }) {
   const phase = useHud((s) => s.phase);
@@ -19,6 +20,8 @@ export function Hud({ room }: { room: string }) {
   const spectator = useHud((s) => s.spectator);
   const connected = useHud((s) => s.connected);
   const uiOpen = useHud((s) => s.ui) !== null;
+  const chatOpen = useHud((s) => s.chatOpen);
+  const health = useHud((s) => s.health);
   const [copied, setCopied] = useState(false);
   const [flash, setFlash] = useState(false);
 
@@ -40,7 +43,7 @@ export function Hud({ room }: { room: string }) {
       {flash && <div className="hurt-vignette absolute inset-0" />}
 
       {/* crosshair */}
-      {!uiOpen && (
+      {!uiOpen && !chatOpen && (
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-2xl leading-none text-shadow-pixel">
           +
         </div>
@@ -108,6 +111,14 @@ export function Hud({ room }: { room: string }) {
       )}
 
       {/* hotbar */}
+      {!spectator && phase === "playing" && !uiOpen && (
+        <div role="meter" aria-label="Health" aria-valuemin={0} aria-valuemax={MAX_HEALTH} aria-valuenow={health} className="pixel-panel absolute bottom-20 left-1/2 -translate-x-1/2 px-3 py-2 text-center">
+          <div className="flex gap-1 text-lg leading-none" aria-hidden="true">
+            {Array.from({ length: 10 }, (_, i) => <span key={i} className={health > i * 2 ? "text-destructive" : "text-muted-foreground opacity-40"}>♥</span>)}
+          </div>
+          <div className="mt-1 text-xs">{Math.ceil(health * 10) / 10} / {MAX_HEALTH} HP</div>
+        </div>
+      )}
       {!spectator && !uiOpen && (
         <div className="absolute bottom-5 left-1/2 flex -translate-x-1/2 gap-2">
           {G.self.inv.slice(0, 9).map((it, i) => (
@@ -120,7 +131,7 @@ export function Hud({ room }: { room: string }) {
       )}
 
       {/* Esc menu: controls + resume */}
-      {!locked && !uiOpen && (
+      {!locked && !uiOpen && !chatOpen && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/40">
           <div className="pixel-panel w-full max-w-md p-5 text-center text-sm">
             <div className="mb-3 text-2xl text-primary text-shadow-pixel">MENU</div>
@@ -134,6 +145,7 @@ export function Hud({ room }: { room: string }) {
               <span className="text-muted-foreground">E</span><span>Inventory / open chest</span>
               <span className="text-muted-foreground">1–9 / wheel</span><span>Pick hotbar slot</span>
               <span className="text-muted-foreground">Esc</span><span>This menu</span>
+              <span className="text-muted-foreground">T</span><span>Room chat</span>
             </div>
             <button onClick={lockPointer} className="pixel-btn pixel-btn-primary pointer-events-auto mt-4 w-full">
               Resume (click)
