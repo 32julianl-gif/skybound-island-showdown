@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import type { ChatMessage } from "./chat";
 
 export type Phase = "waiting" | "playing" | "ended";
 export type FeedItem = { id: number; text: string };
@@ -21,6 +22,9 @@ export type HudState = {
   spectator: boolean;
   opened: number;
   connected: boolean;
+  health: number;
+  chatOpen: boolean;
+  chat: ChatMessage[];
 };
 
 let state: HudState = {
@@ -41,6 +45,9 @@ let state: HudState = {
   spectator: false,
   opened: 0,
   connected: false,
+  health: 20,
+  chatOpen: false,
+  chat: [],
 };
 const listeners = new Set<() => void>();
 

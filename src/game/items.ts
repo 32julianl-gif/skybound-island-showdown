@@ -57,7 +57,7 @@ export const BREAK_TIME: Record<number, number> = {
   1: 0.9, 2: 0.75, 3: 3, 4: 1.6, 5: 0.3, 6: 0.45, 7: 1.9,
 };
 
-/** Fraction of knockback absorbed by worn armor (4% per point, max 20 points = 80%... capped at 60%). */
+/** Damage and knockback absorbed by worn armor: 3% per point, capped at 60%. */
 export function armorReduction(armor: Slot[]) {
   const pts = armor.reduce((s, a) => s + (a ? def(a.id).armor?.points ?? 0 : 0), 0);
   return Math.min(0.6, pts * 0.03);

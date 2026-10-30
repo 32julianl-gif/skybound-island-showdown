@@ -6,7 +6,7 @@ export const playerId =
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2);
 
-const EVENTS = ["state", "hit", "dead", "block", "chest", "start", "reset", "sync", "arrow"] as const;
+const EVENTS = ["state", "hit", "dead", "block", "chest", "start", "reset", "sync", "arrow", "chat"] as const;
 export type NetEvent = (typeof EVENTS)[number];
 
 let channel: RealtimeChannel | null = null;
