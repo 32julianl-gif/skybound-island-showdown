@@ -141,7 +141,7 @@ export function Hud({ room }: { room: string }) {
               <span className="text-muted-foreground">Shift</span><span>Sprint</span>
               <span className="text-muted-foreground">C</span><span>Crouch (safe bridging)</span>
               <span className="text-muted-foreground">Left click</span><span>Hit player / break block</span>
-              <span className="text-muted-foreground">Right click</span><span>Place block / shoot bow</span>
+              <span className="text-muted-foreground">Right click</span><span>Place block / shoot bow / eat</span>
               <span className="text-muted-foreground">E</span><span>Inventory / open chest</span>
               <span className="text-muted-foreground">1–9 / wheel</span><span>Pick hotbar slot</span>
               <span className="text-muted-foreground">Esc</span><span>This menu</span>

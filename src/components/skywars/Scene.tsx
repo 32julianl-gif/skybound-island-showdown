@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { BLOCK_TYPES, mapDef, raycast } from "@/game/world";
 import { getBlockMaterials, getChestMaterials } from "@/game/textures";
-import { G, applyBlock, closeUi, die, hostTick, invChanged, refreshRoster, openChat, openChest, startRound, teleportToSpawn } from "@/game/engine";
+import { G, applyBlock, closeUi, die, eatHeldFood, tickHealth, hostTick, invChanged, refreshRoster, openChat, openChest, startRound, teleportToSpawn } from "@/game/engine";
 import { hud, pushFeed, useHud } from "@/game/store";
 import { addItem, BREAK_TIME, countItem, def, FIST_POWER, removeItem } from "@/game/items";
 import { playerId, send } from "@/game/net";
@@ -498,6 +498,7 @@ function PlayerController() {
   useFrame(({ clock }, raw) => {
     const dt = Math.min(raw, 0.05);
     gl.domElement.parentElement?.setAttribute("data-scene-ready", "1");
+    tickHealth();
     if (hud.get().chatOpen) {
       keys.clear(); actions.length = 0;
       mouse.current.left = false; mouse.current.right = false;
@@ -608,6 +609,7 @@ function PlayerController() {
           send("hit", { from: playerId, target: best, dx: look.x / hl, dz: look.z / hl, power: power * crit, damage: meleeDamage(held?.id) * crit, round: G.round });
         }
       } else if (a === "use") {
+        if (held && def(held.id).heal) { eatHeldFood(); continue; }
         if (held?.id === "bow") continue; // charge handled below
         const bt = held ? def(held.id).block : undefined;
         if (!bt || !held) continue;

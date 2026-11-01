@@ -11,6 +11,7 @@ type Def = {
   power?: number; // melee knockback
   armor?: { part: ArmorPart; points: number };
   block?: number;
+  heal?: number;
 };
 
 const TIERS = ["leather", "iron", "diamond"] as const;
@@ -29,6 +30,8 @@ export const DEFS: Record<string, Def> = {
   diamond_sword: { name: "Diamond Sword", icon: "🗡️", stack: 1, tier: 3, power: 17 },
   bow: { name: "Bow", icon: "🏹", stack: 1 },
   arrow: { name: "Arrow", icon: "➶", stack: 64 },
+  apple: { name: "Apple", icon: "🍎", stack: 64, heal: 4 },
+  bread: { name: "Bread", icon: "🍞", stack: 64, heal: 6 },
 };
 TIERS.forEach((t, ti) =>
   PARTS.forEach((p, pi) => {
@@ -125,6 +128,7 @@ export function chestLoot(round: number, chestId: number): Slot[] {
   if (r() < 0.85) put(swords[Math.floor(r() * swords.length)]!);
   if (r() < (mid ? 0.6 : 0.35)) put("bow");
   if (r() < 0.7) put("arrow", 4 + Math.floor(r() * 12));
+  put(mid ? "bread" : "apple", 2 + Math.floor(r() * 3));
   const tiers = mid ? ["iron", "diamond"] : ["leather", "iron"];
   const pieces = 1 + Math.floor(r() * (mid ? 3 : 2));
   for (let k = 0; k < pieces; k++) {

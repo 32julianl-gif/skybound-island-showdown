@@ -28,6 +28,7 @@ export function itemDescription(id: string) {
   if (id.endsWith("_sword")) return `${meleeDamage(id)} melee damage`;
   if (id === "bow") return "Charged ranged weapon · uses arrows · 2–8 damage";
   if (id === "arrow") return "Ammunition for bows";
+  if (item.heal) return `Restores ${item.heal / 2} hearts`;
   if (item.block) return "Building block · stack of up to 64";
   return item.name;
 }
