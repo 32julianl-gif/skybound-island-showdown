@@ -5,6 +5,8 @@ import { playerId, send, type NetEvent } from "./net";
 import { addItem, chestLoot, CHEST_SIZE, INV_SIZE, type Slot } from "./items";
 import { MAX_HEALTH, HIT_LIFT, healthAfterHit, knockbackAfterArmor } from "./combat";
 import { CHAT_COOLDOWN_MS, CHAT_HISTORY_LIMIT, cleanChatText } from "./chat";
+import { healedHealth, regenerationStep } from "./healing";
+import { def } from "./items";
 
 export type Arrow = { id: number; from: string; p: THREE.Vector3; v: THREE.Vector3; stuck: number };
 
@@ -44,6 +46,7 @@ export const G = {
   chatSeen: new Map<string, number>(),
   self: {
     health: MAX_HEALTH,
+    regenAt: 0,
     pos: new THREE.Vector3(22.5, 1, 0.5),
     vel: new THREE.Vector3(),
     kb: new THREE.Vector2(),
@@ -126,6 +129,7 @@ export function sendChat(text: string): boolean {
 
 function resetHealth() {
   G.self.health = MAX_HEALTH;
+  G.self.regenAt = performance.now();
   G.self.lastHitter = "";
   G.self.lastHitAt = -1e9;
   hud.set({ health: MAX_HEALTH });
@@ -133,6 +137,30 @@ function resetHealth() {
 
 function bump() {
   hud.set({ version: hud.get().version + 1 });
+}
+
+export function tickHealth(now = performance.now()) {
+  const me = G.self;
+  if (G.phase !== "playing" || me.spectator || !G.alive.has(playerId) || me.health <= 0) return;
+  const next = regenerationStep(me.health, me.regenAt, now);
+  me.regenAt = next.lastAt;
+  if (next.health === me.health) return;
+  me.health = next.health;
+  hud.set({ health: me.health });
+}
+
+export function eatHeldFood() {
+  const me = G.self;
+  if (G.phase !== "playing" || me.spectator || !G.alive.has(playerId) || me.health <= 0 || me.health >= MAX_HEALTH || G.ui.open !== null || hud.get().chatOpen) return false;
+  const item = me.inv[me.sel];
+  const healing = item ? def(item.id).heal : undefined;
+  if (!item || item.n <= 0 || !healing) return false;
+  me.health = healedHealth(me.health, healing);
+  item.n -= 1;
+  if (item.n === 0) me.inv[me.sel] = null;
+  hud.set({ health: me.health });
+  invChanged();
+  return true;
 }
 
 export function teleportToSpawn(i: number) {
