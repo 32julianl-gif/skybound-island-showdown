@@ -1,4 +1,4 @@
-import { useEffect, useId, useState, type MouseEvent } from "react";
+import { useEffect, useId, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { G, getChest, invChanged, setChestSlot } from "@/game/engine";
 import { def, type Slot } from "@/game/items";
 import { useHud } from "@/game/store";
@@ -50,7 +50,7 @@ function SlotButton({
   label,
 }: {
   item: Slot;
-  onClick: (event: MouseEvent<HTMLButtonElement>) => void;
+  onClick: (event: ReactMouseEvent<HTMLButtonElement>) => void;
   ghost?: string;
   label: string;
 }) {
