@@ -8,7 +8,7 @@ import { G, applyBlock, closeUi, die, hostTick, invChanged, refreshRoster, openC
 import { hud, pushFeed, useHud } from "@/game/store";
 import { addItem, BREAK_TIME, countItem, def, FIST_POWER, removeItem } from "@/game/items";
 import { playerId, send } from "@/game/net";
-import { arrowDamage, meleeDamage } from "@/game/combat";
+import { arrowDamage, meleeDamage, MAX_HEALTH } from "@/game/combat";
 
 // ---------- feel constants ----------
 const SPEED = 5.2;
@@ -130,6 +130,8 @@ function Avatar({ id, name }: { id: string; name: string }) {
   const armL = useRef<THREE.Mesh>(null);
   const armR = useRef<THREE.Mesh>(null);
   const phase = useRef(0);
+  const healthMeter = useRef<HTMLMeterElement>(null);
+  const healthText = useRef<HTMLSpanElement>(null);
   const color = colorFor(id);
 
   useFrame((_, raw) => {
@@ -142,6 +144,9 @@ function Avatar({ id, name }: { id: string; name: string }) {
       return;
     }
     grp.visible = true;
+    const hp = Math.max(0, Math.min(MAX_HEALTH, Number.isFinite(s.hp) ? s.hp ?? MAX_HEALTH : MAX_HEALTH));
+    if (healthMeter.current && healthMeter.current.value !== hp) healthMeter.current.value = hp;
+    if (healthText.current) healthText.current.textContent = `${Math.ceil(hp * 10) / 10} / ${MAX_HEALTH}`;
     grp.scale.y += ((s.c ? 0.82 : 1) - grp.scale.y) * 0.3;
     tmp.set(s.x, s.y, s.z);
     const before = grp.position.clone();
@@ -194,7 +199,11 @@ function Avatar({ id, name }: { id: string; name: string }) {
         <meshStandardMaterial color="#222" />
       </mesh>
       <Html position={[0, 2.35, 0]} center distanceFactor={10} zIndexRange={[5, 0]}>
-        <div className="nametag">{name}</div>
+        <div className="nametag pointer-events-none flex min-w-24 flex-col items-center gap-1">
+          <span>{name}</span>
+          <meter ref={healthMeter} className="player-health" aria-label={`${name} health`} min={0} max={MAX_HEALTH} value={MAX_HEALTH} />
+          <span ref={healthText} className="text-xs">{MAX_HEALTH} / {MAX_HEALTH}</span>
+        </div>
       </Html>
     </group>
   );

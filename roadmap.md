@@ -6,3 +6,5 @@
 - [x] Health-based PvP, 50% lower knockback, armor damage reduction
 - [x] Room chat with safe typing controls
 - [x] Verify combat and chat with two players
+- [x] Player health bars and item descriptions
+- [x] Shift-click chest transfers and armor equipping, with verification

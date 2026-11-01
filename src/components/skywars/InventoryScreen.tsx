@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { G, getChest, invChanged, setChestSlot } from "@/game/engine";
 import { def, type Slot } from "@/game/items";
 import { useHud } from "@/game/store";
+import { Button } from "@/components/ui/button";
+import { itemDescription, quickEquip, transferStack } from "@/game/inventory";
 
 /** Minecraft-style click: pick up / place / merge / swap with the cursor stack. */
 function clickSlot(get: () => Slot, set: (s: Slot) => void) {
@@ -45,16 +47,21 @@ function SlotButton({
   item,
   onClick,
   ghost,
+  label,
 }: {
   item: Slot;
-  onClick: () => void;
+  onClick: (event: ReactMouseEvent<HTMLButtonElement>) => void;
   ghost?: string;
+  label: string;
 }) {
+  const descriptionId = useId();
   return (
-    <button
+    <Button
+      variant="ghost"
       onClick={onClick}
-      className="inv-slot"
-      title={item ? def(item.id).name : undefined}
+      className="inv-slot group rounded-none p-0"
+      aria-label={`${label}: ${item ? `${def(item.id).name} (${item.n})` : "Empty"}`}
+      aria-describedby={item ? descriptionId : undefined}
     >
       {item ? (
         <>
@@ -66,7 +73,13 @@ function SlotButton({
       ) : (
         ghost && <span className="text-lg leading-none opacity-25">{ghost}</span>
       )}
-    </button>
+      {item && (
+        <span id={descriptionId} role="tooltip" className="item-tooltip pointer-events-none absolute bottom-full left-1/2 z-40 mb-2 hidden w-52 -translate-x-1/2 whitespace-normal border-2 border-primary bg-popover p-2 text-left text-xs text-popover-foreground group-hover:block group-focus-visible:block">
+          <span className="mb-1 block text-sm text-primary">{def(item.id).name}</span>
+          {itemDescription(item.id)}
+        </span>
+      )}
+    </Button>
   );
 }
 
@@ -92,11 +105,33 @@ export function InventoryScreen() {
   const chest = chestId !== null ? getChest(chestId) : null;
   const cursor = G.ui.cursor;
 
+  const quickMove = (source: Slot[], index: number) => {
+    if (G.ui.cursor) return;
+    const equipped = quickEquip(source, index, me.armor);
+    let moved = equipped;
+    if (!equipped) {
+      if (source === chest) moved = transferStack(source, index, me.inv);
+      else if (chest) moved = transferStack(source, index, chest);
+      else {
+        const destination = index < 9 ? me.inv.slice(9) : me.inv.slice(0, 9);
+        moved = transferStack(source, index, destination);
+        if (moved) me.inv.splice(index < 9 ? 9 : 0, destination.length, ...destination);
+      }
+    }
+    if (!moved) return;
+    if (chest && chestId !== null) {
+      if (source === chest) setChestSlot(chestId, index, chest[index] ?? null, true);
+      else if (!equipped) chest.forEach((item, slot) => setChestSlot(chestId, slot, item, true));
+    }
+    invChanged();
+  };
+
   const invSlot = (i: number) => (
     <SlotButton
       key={i}
       item={me.inv[i] ?? null}
-      onClick={() =>
+      label={`Inventory slot ${i + 1}`}
+      onClick={(event) => event.shiftKey ? quickMove(me.inv, i) :
         clickSlot(
           () => me.inv[i] ?? null,
           (s) => {
@@ -109,7 +144,7 @@ export function InventoryScreen() {
 
   return (
     <div className="fixed inset-0 z-20 flex items-center justify-center font-pixel">
-      <div className="pixel-panel p-4">
+      <div className="pixel-panel max-w-full p-4">
         {chest && (
           <>
             <div className="mb-2 text-sm text-primary">Chest</div>
@@ -118,10 +153,11 @@ export function InventoryScreen() {
                 <SlotButton
                   key={i}
                   item={it}
-                  onClick={() =>
+                  label={`Chest slot ${i + 1}`}
+                  onClick={(event) => event.shiftKey ? quickMove(chest, i) :
                     clickSlot(
                       () => chest[i] ?? null,
-                      (s) => setChestSlot(chestId!, i, s, true),
+                      (s) => { if (chestId !== null) setChestSlot(chestId, i, s, true); },
                     )
                   }
                 />
@@ -131,7 +167,7 @@ export function InventoryScreen() {
           </>
         )}
 
-        {chest === null && (
+        {(
           <div className="mb-3 flex items-start gap-3">
             <div className="flex flex-col gap-1">
               {ARMOR_GHOST.map((g, part) => (
@@ -139,7 +175,12 @@ export function InventoryScreen() {
                   key={part}
                   item={me.armor[part] ?? null}
                   ghost={g}
-                  onClick={() => clickArmor(part)}
+                  label={`Equipped ${ARMOR_NAME[part]}`}
+                  onClick={(event) => {
+                    if (event.shiftKey) {
+                      if (!G.ui.cursor && transferStack(me.armor, part, me.inv)) invChanged();
+                    } else clickArmor(part);
+                  }}
                 />
               ))}
             </div>
@@ -147,7 +188,7 @@ export function InventoryScreen() {
               <div className="mb-1 text-sm text-primary">Armor</div>
               {ARMOR_NAME.map((n, i) => (
                 <div key={n} className={me.armor[i] ? "text-foreground" : ""}>
-                  {n}: {me.armor[i] ? def(me.armor[i]!.id).name : "—"}
+                  {n}: {def(me.armor[i]?.id ?? "")?.name ?? "—"}
                 </div>
               ))}
             </div>
