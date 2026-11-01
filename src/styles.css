@@ -192,6 +192,11 @@
     cursor: pointer;
   }
   .inv-slot:hover { border-color: var(--ring); }
+  .inv-slot:focus-visible { border-color: var(--ring); }
+  .player-health { width: 6rem; height: 0.6rem; }
+  .player-health::-webkit-meter-bar { background: var(--input); border: 1px solid var(--border); border-radius: 0; }
+  .player-health::-webkit-meter-optimum-value { background: var(--accent); }
+  .player-health::-moz-meter-bar { background: var(--accent); }
   .text-shadow-pixel { text-shadow: 3px 3px 0 oklch(0.15 0.04 250); }
   .nametag {
     font-family: var(--font-pixel);
