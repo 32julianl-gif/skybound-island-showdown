@@ -116,7 +116,7 @@ function guardTower(w: World, cx: number, cz: number, height: number) {
   // Opposite entrances allow crossing the tower without a dead end.
   for (const z of [cz - 2, cz + 2]) fill(w, cx, cx, 1, 3, z, z, 0);
   for (const x of [cx - 2, cx + 2]) fill(w, x, x, 4, 5, cz, cz, 0);
-  const stairs = [[-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1]];
+  const stairs: [number, number][] = [[-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1]];
   for (let y = 1; y <= height; y++) {
     const step = stairs[(y - 1) % stairs.length];
     if (step) w.set(cx + step[0], y, cz + step[1], BLOCK.PLANKS);
