@@ -1,5 +1,5 @@
 # Roadmap
-- [ ] Add and verify a large central castle map with floating guard towers
+- [x] Add and verify a large central castle map with floating guard towers
 - [ ] Natural regeneration: half a heart every five seconds, healing food, and verification
 - [x] Minecraft-style chest menu (armor, arrows, swords), inventory + hotbar
 - [x] Crouch (C), sprint (Shift) + sprint jumping, timed block breaking
