@@ -58,17 +58,19 @@ function tree(w: World, x: number, z: number) {
 export const MAX_PLAYERS = 8;
 
 export type Chest = { id: number; x: number; y: number; z: number };
-type MapCfg = { name: string; ring: number; spawnR: number; center: number; centerDepth: number; mids: number; midRing: number; midR: number; trees: [number, number][] };
+type MapCfg = { name: string; ring: number; spawnR: number; center: number; centerDepth: number; mids: number; midRing: number; midR: number; trees: [number, number][]; castle?: boolean };
 
 const MAPS: MapCfg[] = [
   { name: "Classic Isles", ring: 22, spawnR: 3.5, center: 6.5, centerDepth: 6, mids: 4, midRing: 11, midR: 2.6, trees: [[4, 4], [-4, -4]] },
   { name: "Wide Sky", ring: 27, spawnR: 3, center: 8, centerDepth: 7, mids: 6, midRing: 15, midR: 2.2, trees: [[5, -3], [-5, 3], [0, 6]] },
   { name: "Archipelago", ring: 19, spawnR: 3.2, center: 4, centerDepth: 4, mids: 8, midRing: 10, midR: 2, trees: [[2, -2]] },
+  { name: "Sky Citadel", ring: 42, spawnR: 4, center: 17, centerDepth: 9, mids: 4, midRing: 27, midR: 4.5, trees: [], castle: true },
 ];
 export const MAP_COUNT = MAPS.length;
 
 export function mapDef(map: number) {
-  const m = MAPS[((map % MAPS.length) + MAPS.length) % MAPS.length]!;
+  const m = MAPS[((map % MAPS.length) + MAPS.length) % MAPS.length];
+  if (!m) throw new Error("No Sky Wars maps configured");
   const spawns = Array.from({ length: MAX_PLAYERS }, (_, i) => {
     const a = (i / MAX_PLAYERS) * Math.PI * 2;
     return { x: Math.round(Math.cos(a) * m.ring), z: Math.round(Math.sin(a) * m.ring), a };
@@ -94,6 +96,72 @@ export function mapDef(map: number) {
   return { ...m, spawns, mids, chests };
 }
 
+function fill(w: World, x0: number, x1: number, y0: number, y1: number, z0: number, z1: number, t: number) {
+  for (let x = x0; x <= x1; x++)
+    for (let y = y0; y <= y1; y++)
+      for (let z = z0; z <= z1; z++) w.set(x, y, z, t);
+}
+
+/** Hollow towers, open ground-level doorways, and jumpable internal stairs. */
+function guardTower(w: World, cx: number, cz: number, height: number) {
+  fill(w, cx - 2, cx + 2, 0, 0, cz - 2, cz + 2, BLOCK.STONE);
+  for (let y = 1; y <= height; y++) {
+    for (let n = -2; n <= 2; n++) {
+      w.set(cx + n, y, cz - 2, BLOCK.STONE);
+      w.set(cx + n, y, cz + 2, BLOCK.STONE);
+      w.set(cx - 2, y, cz + n, BLOCK.STONE);
+      w.set(cx + 2, y, cz + n, BLOCK.STONE);
+    }
+  }
+  // Opposite entrances allow crossing the tower without a dead end.
+  for (const z of [cz - 2, cz + 2]) fill(w, cx, cx, 1, 3, z, z, 0);
+  for (const x of [cx - 2, cx + 2]) fill(w, x, x, 4, 5, cz, cz, 0);
+  const stairs: [number, number][] = [[-1, 1], [-1, 0], [-1, -1], [0, -1], [1, -1], [1, 0], [1, 1], [0, 1]];
+  for (let y = 1; y <= height; y++) {
+    const step = stairs[(y - 1) % stairs.length];
+    if (step) w.set(cx + step[0], y, cz + step[1], BLOCK.PLANKS);
+  }
+  // Roof opening preserves headroom above the final stairs.
+  fill(w, cx - 2, cx + 2, height, height, cz - 2, cz + 2, BLOCK.PLANKS);
+  for (let y = Math.max(1, height - 2); y <= height; y++) {
+    const step = stairs[(y - 1) % stairs.length];
+    if (step) w.set(cx + step[0], height, cz + step[1], 0);
+  }
+  for (const x of [-2, 0, 2])
+    for (const z of [-2, 0, 2])
+      if (Math.abs(x) === 2 || Math.abs(z) === 2) w.set(cx + x, height + 1, cz + z, BLOCK.STONE);
+  // Gold-colored wool pennant on a wooden mast.
+  fill(w, cx + 2, cx + 2, height + 2, height + 5, cz + 2, cz + 2, BLOCK.LOG);
+  fill(w, cx + 3, cx + 4, height + 4, height + 5, cz + 2, cz + 2, BLOCK.WOOL);
+}
+
+function castle(w: World) {
+  fill(w, -11, 11, 0, 0, -11, 11, BLOCK.STONE);
+  for (const edge of [-10, 10]) {
+    fill(w, -10, 10, 1, 5, edge, edge, BLOCK.STONE);
+    fill(w, edge, edge, 1, 5, -10, 10, BLOCK.STONE);
+    fill(w, -10, 10, 5, 5, edge - 1, edge + 1, BLOCK.PLANKS);
+    fill(w, edge - 1, edge + 1, 5, 5, -10, 10, BLOCK.PLANKS);
+    for (let n = -8; n <= 8; n += 2) {
+      w.set(n, 6, edge, BLOCK.STONE);
+      w.set(edge, 6, n, BLOCK.STONE);
+    }
+    // Broad arched gates on every side keep the central loot reachable.
+    fill(w, -2, 2, 1, 3, edge, edge, 0);
+    fill(w, -1, 1, 4, 4, edge, edge, 0);
+    fill(w, edge, edge, 1, 3, -2, 2, 0);
+    fill(w, edge, edge, 4, 4, -1, 1, 0);
+  }
+  for (const x of [-10, 10])
+    for (const z of [-10, 10]) guardTower(w, x, z, 9);
+  // Tall rear keep leaves an open courtyard around the four central chests.
+  guardTower(w, 0, -7, 13);
+  for (const x of [-7, 7]) {
+    fill(w, x, x, 1, 3, -4, -4, BLOCK.LOG);
+    fill(w, x - 1, x + 1, 4, 4, -5, -3, BLOCK.PLANKS);
+  }
+}
+
 export function generateWorld(map = 0) {
   const d = mapDef(map);
   const w = new World();
@@ -101,6 +169,10 @@ export function generateWorld(map = 0) {
   for (const [x, z] of d.trees) tree(w, x, z);
   for (const m of d.mids) island(w, m.x, m.z, d.midR, 3);
   for (const s of d.spawns) island(w, s.x, s.z, d.spawnR, 4);
+  if (d.castle) {
+    castle(w);
+    for (const m of d.mids) guardTower(w, m.x, m.z, 7);
+  }
   return w;
 }
 
