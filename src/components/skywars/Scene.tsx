@@ -1,6 +1,6 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { BLOCK_TYPES, mapDef, raycast } from "@/game/world";
 import { getBlockMaterials, getChestMaterials } from "@/game/textures";
@@ -30,8 +30,6 @@ const SPRINT_MULT = 1.3;
 const SPRINT_JUMP_BOOST = 2.2;
 const ARROW_GRAVITY = 14;
 
-const boxGeo = new THREE.BoxGeometry(1, 1, 1);
-
 // ---------- input (module-level, read in frame loop) ----------
 const keys = new Set<string>();
 const actions: string[] = [];
@@ -45,8 +43,9 @@ function Voxels() {
     <>
       {BLOCK_TYPES.map((t) => {
         const geometry = groups.get(t);
-        if (!geometry || geometry.getAttribute("position").count === 0) return null;
-        return <mesh key={t} geometry={geometry} material={getBlockMaterials()[t]} castShadow receiveShadow />;
+        const material = getBlockMaterials()[t];
+        if (!geometry || !material || geometry.getAttribute("position").count === 0) return null;
+        return <mesh key={t} geometry={geometry} material={material} castShadow receiveShadow />;
       })}
     </>
   );
