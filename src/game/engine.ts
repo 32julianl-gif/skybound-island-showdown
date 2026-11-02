@@ -1,5 +1,6 @@
 import * as THREE from "three";
-import { generateWorld, key, mapDef, MAP_COUNT, BLOCK } from "./world";
+import { generateWorld, key, mapDef, BLOCK } from "./world";
+import { mapForRound } from "./map-sequence";
 import { hud, pushFeed, type Phase } from "./store";
 import { playerId, send, type NetEvent } from "./net";
 import { addItem, chestLoot, CHEST_SIZE, INV_SIZE, type Slot } from "./items";
@@ -26,6 +27,7 @@ export const G = {
   name: "",
   world: generateWorld(0),
   map: 0,
+  mapSeed: 0,
   edits: new Map<string, number>(),
   opened: new Set<number>(),
   phase: "waiting" as Phase,
@@ -167,7 +169,8 @@ export function teleportToSpawn(i: number) {
   const sp = mapDef(G.map).spawns;
   // spawn spots rotate every round
   const j = i + G.round * 3;
-  const s = sp[((j % sp.length) + sp.length) % sp.length]!;
+  const s = sp[((j % sp.length) + sp.length) % sp.length];
+  if (!s) return;
   const me = G.self;
   me.pos.set(s.x + 0.5, 1, s.z + 0.5);
   me.vel.set(0, 0, 0);
@@ -224,7 +227,8 @@ function checkEnd() {
 
 export function startRound() {
   if (!isHost() || G.phase !== "waiting") return;
-  const payload = { round: G.round + 1, ids: sortedIds() };
+  if (!G.mapSeed) G.mapSeed = crypto.getRandomValues(new Uint32Array(1))[0] || 1;
+  const payload = { round: G.round + 1, ids: sortedIds(), mapSeed: G.mapSeed };
   send("start", payload);
   handleEvent("start", payload);
 }
@@ -232,8 +236,9 @@ export function startRound() {
 export function hostTick() {
   if (G.phase === "ended" && isHost() && performance.now() - G.endAt > 7000) {
     G.endAt = Infinity;
-    send("reset", {});
-    handleEvent("reset", {});
+    const payload = { mapSeed: G.mapSeed };
+    send("reset", payload);
+    handleEvent("reset", payload);
   }
 }
 
@@ -322,7 +327,8 @@ export function handleEvent(event: NetEvent, p: any) {
     }
     case "start": {
       G.round = p.round;
-      G.map = (p.round - 1) % MAP_COUNT;
+      if (Number.isInteger(p.mapSeed)) G.mapSeed = p.mapSeed >>> 0;
+      G.map = mapForRound(G.mapSeed, G.round);
       resetWorld();
       const ids: string[] = p.ids;
       G.alive = new Set(ids);
@@ -348,7 +354,8 @@ export function handleEvent(event: NetEvent, p: any) {
     case "reset": {
       G.phase = "waiting";
       resetHealth();
-      G.map = G.round % MAP_COUNT;
+      if (Number.isInteger(p.mapSeed)) G.mapSeed = p.mapSeed >>> 0;
+      G.map = mapForRound(G.mapSeed, G.round + 1);
       resetWorld();
       G.alive.clear();
       me.spectator = false;
@@ -363,7 +370,8 @@ export function handleEvent(event: NetEvent, p: any) {
       if (G.synced || p.to !== playerId) return;
       G.synced = true;
       G.round = p.round;
-      G.map = p.phase === "waiting" ? p.round % MAP_COUNT : (p.round - 1) % MAP_COUNT;
+      if (Number.isInteger(p.mapSeed)) G.mapSeed = p.mapSeed >>> 0;
+      G.map = mapForRound(G.mapSeed, p.phase === "waiting" ? G.round + 1 : G.round);
       if (p.phase === "waiting") {
         resetWorld();
         teleportToSpawn(Math.max(0, G.spawnIdx));
@@ -416,7 +424,7 @@ function onRoster(list: { id: string; name: string }[]) {
   const ids = new Set(list.map((r) => r.id));
   for (const id of [...G.remotes.keys()]) if (!ids.has(id)) G.remotes.delete(id);
   for (const id of G.chatSeen.keys()) if (!ids.has(id)) G.chatSeen.delete(id);
-  if (list.length === 1 && list[0]!.id === playerId) G.synced = true;
+  if (list.length === 1 && list[0]?.id === playerId) G.synced = true;
 
   // host brings late joiners up to date
   if (isHost() && G.synced) {
@@ -426,6 +434,7 @@ function onRoster(list: { id: string; name: string }[]) {
         to: r.id,
         phase: G.phase,
         round: G.round,
+        mapSeed: G.mapSeed,
         alive: [...G.alive],
         startCount: G.startCount,
         opened: [...G.opened],
