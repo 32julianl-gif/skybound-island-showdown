@@ -1,4 +1,6 @@
 # Roadmap
+- [ ] Reduce castle rendering cost without changing its layout
+- [ ] Shuffle and synchronize map sequences, with tests and gameplay verification
 - [x] Add and verify a large central castle map with floating guard towers
 - [ ] Natural regeneration: half a heart every five seconds, healing food, and verification
 - [x] Minecraft-style chest menu (armor, arrows, swords), inventory + hotbar

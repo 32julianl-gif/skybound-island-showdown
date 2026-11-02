@@ -1,6 +1,6 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { Html } from "@react-three/drei";
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { BLOCK_TYPES, mapDef, raycast } from "@/game/world";
 import { getBlockMaterials, getChestMaterials } from "@/game/textures";
@@ -9,6 +9,7 @@ import { hud, pushFeed, useHud } from "@/game/store";
 import { addItem, BREAK_TIME, countItem, def, FIST_POWER, removeItem } from "@/game/items";
 import { playerId, send } from "@/game/net";
 import { arrowDamage, meleeDamage, MAX_HEALTH } from "@/game/combat";
+import { surfaceGeometry } from "@/game/voxel-geometry";
 
 // ---------- feel constants ----------
 const SPEED = 5.2;
@@ -29,55 +30,23 @@ const SPRINT_MULT = 1.3;
 const SPRINT_JUMP_BOOST = 2.2;
 const ARROW_GRAVITY = 14;
 
-const boxGeo = new THREE.BoxGeometry(1, 1, 1);
-
 // ---------- input (module-level, read in frame loop) ----------
 const keys = new Set<string>();
 const actions: string[] = [];
 
 // ---------- voxels ----------
-function TypeMesh({ t, list }: { t: number; list: number[] }) {
-  const ref = useRef<THREE.InstancedMesh>(null);
-  const count = list.length / 3;
-  useLayoutEffect(() => {
-    const m = ref.current;
-    if (!m) return;
-    const o = new THREE.Object3D();
-    for (let i = 0; i < count; i++) {
-      o.position.set(list[i * 3]! + 0.5, list[i * 3 + 1]! + 0.5, list[i * 3 + 2]! + 0.5);
-      o.updateMatrix();
-      m.setMatrixAt(i, o.matrix);
-    }
-    m.count = count;
-    m.instanceMatrix.needsUpdate = true;
-  }, [list, count]);
-  return (
-    <instancedMesh
-      ref={ref}
-      args={[boxGeo, getBlockMaterials()[t], Math.max(count, 1)]}
-      frustumCulled={false}
-      castShadow
-      receiveShadow
-    />
-  );
-}
-
 function Voxels() {
   const version = useHud((s) => s.version);
-  const groups = useMemo(() => {
-    const m = new Map<number, number[]>();
-    for (const t of BLOCK_TYPES) m.set(t, []);
-    for (const [k, t] of G.world.blocks) {
-      const [x = 0, y = 0, z = 0] = k.split(",").map(Number);
-      m.get(t)!.push(x, y, z);
-    }
-    return m;
-  }, [version]);
+  const groups = useMemo(() => surfaceGeometry(G.world), [version]);
+  useEffect(() => () => { for (const geometry of groups.values()) geometry.dispose(); }, [groups]);
   return (
     <>
-      {BLOCK_TYPES.map((t) => (
-        <TypeMesh key={`${t}-${version}`} t={t} list={groups.get(t)!} />
-      ))}
+      {BLOCK_TYPES.map((t) => {
+        const geometry = groups.get(t);
+        const material = getBlockMaterials()[t];
+        if (!geometry || !material || geometry.getAttribute("position").count === 0) return null;
+        return <mesh key={t} geometry={geometry} material={material} castShadow receiveShadow />;
+      })}
     </>
   );
 }

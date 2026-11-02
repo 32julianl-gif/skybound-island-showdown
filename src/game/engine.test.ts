@@ -3,14 +3,30 @@ vi.mock("./net", () => ({ playerId: "local", send: vi.fn() }));
 import { G, eatHeldFood, handleEvent, tickHealth } from "./engine";
 import { hud } from "./store";
 import { send } from "./net";
+import { mapForRound } from "./map-sequence";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  G.mapSeed = 0;
   G.roster = [{ id: "local", name: "Local" }, { id: "remote", name: "Remote" }];
   G.chatSeen.clear();
   hud.set({ chat: [] });
   hud.set({ chatOpen: false });
   handleEvent("start", { round: 1, ids: ["local", "remote"] });
+});
+
+it("shares the shuffled map through start, reset, and late-join sync", () => {
+  handleEvent("start", { round: 3, ids: ["local", "remote"], mapSeed: 123 });
+  expect(G.map).toBe(mapForRound(123, 3));
+  handleEvent("reset", { mapSeed: 123 });
+  expect(G.map).toBe(mapForRound(123, 4));
+  G.synced = false;
+  handleEvent("sync", { to: "local", phase: "waiting", round: 3, mapSeed: 456 });
+  expect(G.mapSeed).toBe(456);
+  expect(G.map).toBe(mapForRound(456, 4));
+  G.synced = false;
+  handleEvent("sync", { to: "local", phase: "playing", round: 3, mapSeed: 123, edits: [], opened: [], alive: ["remote"], startCount: 2 });
+  expect(G.map).toBe(mapForRound(123, 3));
 });
 
 describe("combat elimination", () => {
