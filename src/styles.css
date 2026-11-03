@@ -98,6 +98,18 @@
   --sidebar-ring: oklch(0.84 0.16 85);
   --wool: oklch(0.84 0.15 85);
   --hurt: oklch(0.55 0.22 27 / 0.45);
+  --armor-leather: #ad7048;
+  --armor-leather-trim: #5b3929;
+  --armor-iron: #ccd6dc;
+  --armor-iron-trim: #758a99;
+  --armor-diamond: #45ddd1;
+  --armor-diamond-trim: #168a9c;
+  --armor-highlight: #f2fafb;
+  --food-apple: #dd454a;
+  --food-leaf: #63ac4a;
+  --food-bread: #e4b260;
+  --food-crust: #a96530;
+  --player-skin: #e7b98f;
 }
 
 .dark {
@@ -208,4 +220,20 @@
   }
   .hurt-vignette { background: radial-gradient(circle, transparent 45%, var(--hurt)); }
   .lobby-scrim { background: linear-gradient(180deg, oklch(0.2 0.05 250 / 0.2), oklch(0.18 0.05 250 / 0.65)); }
+  .item-art { width: 1.8rem; height: 1.8rem; flex-shrink: 0; image-rendering: pixelated; }
+  .armor-leather { color: var(--armor-leather); --armor-trim: var(--armor-leather-trim); }
+  .armor-iron { color: var(--armor-iron); --armor-trim: var(--armor-iron-trim); }
+  .armor-diamond { color: var(--armor-diamond); --armor-trim: var(--armor-diamond-trim); }
+  .armor-item-trim { fill: var(--armor-trim); }
+  .armor-item-highlight { fill: var(--armor-highlight); }
+  .food-apple { fill: var(--food-apple); }
+  .food-leaf { fill: var(--food-leaf); }
+  .food-bread { fill: var(--food-bread); }
+  .food-crust { fill: var(--food-crust); }
+  .eating-view { position: absolute; right: 29%; bottom: 24%; width: 7rem; height: 9rem; transform-origin: bottom right; animation: eating-bite 0.32s steps(4) infinite; }
+  .eating-view .item-art { width: 6rem; height: 6rem; position: relative; z-index: 1; }
+  .eating-hand { position: absolute; top: 4rem; left: 3rem; width: 2.5rem; height: 5rem; background: var(--player-skin); border: 4px solid var(--border); transform: rotate(-25deg); }
+  .eating-progress { position: absolute; bottom: 10rem; left: 50%; transform: translateX(-50%); width: 8rem; accent-color: var(--primary); height: 0.6rem; }
+  @keyframes eating-bite { 0%, 100% { transform: translate(0, 0) rotate(-12deg); } 50% { transform: translate(-1.5rem, -1rem) rotate(8deg); } }
+  @media (prefers-reduced-motion: reduce) { .eating-view { animation: none; } }
 }

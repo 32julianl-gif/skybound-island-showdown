@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("./net", () => ({ playerId: "local", send: vi.fn() }));
-import { G, eatHeldFood, handleEvent, tickHealth } from "./engine";
+import { G, eatHeldFood, handleEvent, tickHealth, tickEating } from "./engine";
 import { hud } from "./store";
 import { send } from "./net";
 import { mapForRound } from "./map-sequence";
@@ -78,15 +78,35 @@ describe("healing in a round", () => {
   it("consumes one food item to heal and does not waste food at full health", () => {
     G.self.health = 10;
     G.self.inv[0] = { id: "apple", n: 2 };
-    expect(eatHeldFood()).toBe(true);
+    expect(eatHeldFood(100)).toBe(true);
+    expect(G.self.health).toBe(10);
+    expect(tickEating(true, 1699)).toBe(false);
+    expect(G.self.inv[0]).toEqual({ id: "apple", n: 2 });
+    expect(tickEating(true, 1700)).toBe(true);
     expect(G.self.health).toBe(14);
     expect(G.self.inv[0]).toEqual({ id: "apple", n: 1 });
-    expect(eatHeldFood()).toBe(true);
+    expect(eatHeldFood(2000)).toBe(true);
+    expect(tickEating(true, 3600)).toBe(true);
     expect(G.self.health).toBe(18);
     expect(G.self.inv[0]).toBeNull();
     G.self.health = 20;
     G.self.inv[0] = { id: "bread", n: 1 };
     expect(eatHeldFood()).toBe(false);
     expect(G.self.inv[0]).toEqual({ id: "bread", n: 1 });
+  });
+  it("cancels eating on release, slot changes, menus, or death without consuming food", () => {
+    for (const interruption of ["release", "slot", "menu", "death"]) {
+      handleEvent("start", { round: 1, ids: ["local", "remote"] });
+      G.self.health = 10;
+      G.self.inv[0] = { id: "apple", n: 2 };
+      eatHeldFood(100);
+      if (interruption === "slot") G.self.sel = 1;
+      if (interruption === "menu") G.ui.open = "inv";
+      if (interruption === "death") G.self.spectator = true;
+      expect(tickEating(interruption !== "release", 1800)).toBe(false);
+      expect(G.self.inv[0]).toEqual({ id: "apple", n: 2 });
+      expect(G.self.health).toBe(10);
+      expect(G.self.eating).toBeNull();
+    }
   });
 });

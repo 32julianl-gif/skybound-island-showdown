@@ -5,6 +5,7 @@ import { lockPointer } from "./Scene";
 import { def } from "@/game/items";
 import { playerId } from "@/game/net";
 import { MAX_HEALTH } from "@/game/combat";
+import { ItemIcon } from "./ItemIcon";
 
 export function Hud({ room }: { room: string }) {
   const phase = useHud((s) => s.phase);
@@ -123,7 +124,7 @@ export function Hud({ room }: { room: string }) {
         <div className="absolute bottom-5 left-1/2 flex -translate-x-1/2 gap-2">
           {G.self.inv.slice(0, 9).map((it, i) => (
             <div key={i} className="pixel-slot" style={i === G.self.sel ? { borderColor: "var(--primary)" } : undefined}>
-              <span>{it ? def(it.id).icon : ""}</span>
+              {it && <ItemIcon id={it.id} />}
               <span className="text-xs">{it && it.n > 1 ? it.n : ""}</span>
             </div>
           ))}

@@ -1,8 +1,10 @@
 # Roadmap
+- [x] Timed food consumption with eating animation and cancellation
+- [x] Visible tier-specific worn armor and armor item art, with gameplay verification
 - [ ] Reduce castle rendering cost without changing its layout
 - [ ] Shuffle and synchronize map sequences, with tests and gameplay verification
 - [x] Add and verify a large central castle map with floating guard towers
-- [ ] Natural regeneration: half a heart every five seconds, healing food, and verification
+- [x] Natural regeneration: half a heart every five seconds, healing food, and verification
 - [x] Minecraft-style chest menu (armor, arrows, swords), inventory + hotbar
 - [x] Crouch (C), sprint (Shift) + sprint jumping, timed block breaking
 - [x] Multiple maps rotating each round, spawn spots change each round

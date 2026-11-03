@@ -4,6 +4,7 @@ import { def, type Slot } from "@/game/items";
 import { useHud } from "@/game/store";
 import { Button } from "@/components/ui/button";
 import { itemDescription, quickEquip, transferStack } from "@/game/inventory";
+import { ItemIcon } from "./ItemIcon";
 
 /** Minecraft-style click: pick up / place / merge / swap with the cursor stack. */
 function clickSlot(get: () => Slot, set: (s: Slot) => void) {
@@ -65,7 +66,7 @@ function SlotButton({
     >
       {item ? (
         <>
-          <span className="text-xl leading-none">{def(item.id).icon}</span>
+          <ItemIcon id={item.id} />
           {item.n > 1 && (
             <span className="absolute bottom-0 right-0.5 text-xs text-shadow-pixel">{item.n}</span>
           )}
@@ -213,7 +214,7 @@ export function InventoryScreen() {
           className="pointer-events-none fixed z-30 flex items-center gap-1"
           style={{ left: mouse.x + 10, top: mouse.y + 8 }}
         >
-          <span className="text-2xl text-shadow-pixel">{def(cursor.id).icon}</span>
+          <ItemIcon id={cursor.id} />
           {cursor.n > 1 && <span className="text-sm text-shadow-pixel">{cursor.n}</span>}
         </div>
       )}

@@ -1,8 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { healedHealth, regenerationStep } from "./healing";
+import { healedHealth, regenerationStep, eatingProgress } from "./healing";
 import { chestLoot, def } from "./items";
 
 describe("natural healing", () => {
+  it("requires a full 1.6-second eating action", () => {
+    expect(eatingProgress(100, 100)).toBe(0);
+    expect(eatingProgress(100, 900)).toBe(0.5);
+    expect(eatingProgress(100, 1699)).toBeLessThan(1);
+    expect(eatingProgress(100, 1700)).toBe(1);
+  });
   it("restores exactly half a heart every five seconds", () => {
     expect(regenerationStep(10, 0, 4999)).toEqual({ health: 10, lastAt: 0 });
     expect(regenerationStep(10, 0, 5000)).toEqual({ health: 11, lastAt: 5000 });
