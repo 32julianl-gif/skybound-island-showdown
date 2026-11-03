@@ -6,8 +6,9 @@ import { Hud } from "./Hud";
 import { InventoryScreen } from "./InventoryScreen";
 import { Chat } from "./Chat";
 import { connect, playerId, send } from "@/game/net";
-import { G, handleEvent, onPresence, startRound } from "@/game/engine";
+import { G, handleEvent, onPresence, startRound, eatHeldFood, tickEating, invChanged } from "@/game/engine";
 import { hud } from "@/game/store";
+import { EatingOverlay } from "./EatingOverlay";
 
 export function SkyWarsGame({ room, name }: { room: string; name: string }) {
   useEffect(() => {
@@ -15,8 +16,12 @@ export function SkyWarsGame({ room, name }: { room: string; name: string }) {
     if (import.meta.env.DEV) {
       const debugWindow = window as typeof window & { __game?: unknown };
       debugWindow.__game = {
-        get state() { return { id: playerId, phase: G.phase, health: G.self.health, armor: G.self.armor, roster: G.roster, position: G.self.pos.toArray(), chat: hud.get().chat, spectator: G.self.spectator }; },
+        get state() { return { id: playerId, phase: G.phase, health: G.self.health, armor: G.self.armor, inventory: G.self.inv, eating: G.self.eating, remotes: [...G.remotes.values()], roster: G.roster, position: G.self.pos.toArray(), chat: hud.get().chat, spectator: G.self.spectator }; },
         startRound,
+        eat: eatHeldFood,
+        tickEating,
+        prepareFood(id = "apple") { G.self.health = 10; G.self.inv[0] = { id, n: 2 }; G.self.sel = 0; hud.set({ health: 10 }); invChanged(); },
+        place(x: number, y: number, z: number, yaw = 0) { G.self.pos.set(x, y, z); G.self.vel.set(0, 0, 0); G.self.yaw = yaw; G.self.pitch = 0; },
         hit(target: string, damage = 4) { send("hit", { from: playerId, target, damage, power: 10, dx: 1, dz: 0, round: G.round }); },
         equip(ids: string[]) { G.self.armor = ids.map((id) => ({ id, n: 1 })); hud.set({ invV: hud.get().invV + 1 }); },
       };
@@ -50,6 +55,7 @@ export function SkyWarsGame({ room, name }: { room: string; name: string }) {
         <Scene />
       </Canvas>
       <Hud room={room} />
+      <EatingOverlay />
       <InventoryScreen />
       <Chat />
     </div>
