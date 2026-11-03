@@ -129,6 +129,25 @@ function ArmorShell({ id, part, size, position = [0, 0, 0] }: { id: string; part
   </group>;
 }
 
+function EatingFood({ id }: { id: string }) {
+  const mesh = useRef<THREE.Mesh>(null);
+  const material = useRef<THREE.MeshStandardMaterial>(null);
+  const colors = useRef({ apple: "", bread: "" });
+  useEffect(() => {
+    const css = getComputedStyle(document.documentElement);
+    colors.current = { apple: css.getPropertyValue("--food-apple").trim(), bread: css.getPropertyValue("--food-bread").trim() };
+  }, []);
+  useFrame(() => {
+    const food = G.remotes.get(id)?.eating;
+    if (!mesh.current || !material.current) return;
+    mesh.current.visible = food === "apple" || food === "bread";
+    if (!mesh.current.visible) return;
+    material.current.color.set(food === "apple" ? colors.current.apple : colors.current.bread);
+    mesh.current.scale.set(food === "bread" ? 1.5 : 1, 1, 1);
+  });
+  return <mesh ref={mesh} visible={false} position={[0, -0.45, 0]}><boxGeometry args={[0.22, 0.22, 0.22]} /><meshStandardMaterial ref={material} roughness={0.9} /></mesh>;
+}
+
 function Avatar({ id, name }: { id: string; name: string }) {
   const g = useRef<THREE.Group>(null);
   const legL = useRef<THREE.Mesh>(null);
@@ -201,6 +220,7 @@ function Avatar({ id, name }: { id: string; name: string }) {
           <boxGeometry args={[0.22, 0.72, 0.22]} />
           <meshStandardMaterial color={color} roughness={0.9} />
           <ArmorShell id={id} part={1} size={[0.27, 0.26, 0.27]} position={[0, 0.22, 0]} />
+          <EatingFood id={id} />
         </mesh>
       </group>
       <mesh position={[0, 1.76, 0]} castShadow>
@@ -417,6 +437,7 @@ function PlayerController() {
   const mouse = useRef({ left: false, right: false, rightAt: 0 });
   const lastW = useRef(0);
   const sprinting = useRef(false);
+  const lastAppearance = useRef("");
 
   useEffect(() => {
     const el = gl.domElement;
@@ -695,11 +716,15 @@ function PlayerController() {
       const a = !me.spectator;
       const c = me.crouch;
       const l = last.current;
+      const armor = me.armor.map((item) => item?.id ?? null);
+      const eating = me.eating?.id ?? null;
+      const appearance = `${armor.join(",")}:${eating ?? ""}:${me.health}`;
       const moved = Math.abs(x - l.x) + Math.abs(y - l.y) + Math.abs(z - l.z) + Math.abs(ry - l.ry) > 0.01 || a !== l.a || c !== l.c;
       const stale = clock.elapsedTime - l.at > 1;
-      if (moved || stale) {
+      if (moved || stale || appearance !== lastAppearance.current) {
+        lastAppearance.current = appearance;
         last.current = { x, y, z, ry, a, c, at: clock.elapsedTime };
-        send("state", { id: playerId, name: G.name, x, y, z, ry, alive: a, c, hp: me.health, armor: me.armor.map((item) => item?.id ?? null), eating: me.eating?.id ?? null });
+        send("state", { id: playerId, name: G.name, x, y, z, ry, alive: a, c, hp: me.health, armor, eating });
       }
     }
 
