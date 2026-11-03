@@ -4,12 +4,13 @@ import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import { BLOCK_TYPES, mapDef, raycast } from "@/game/world";
 import { getBlockMaterials, getChestMaterials } from "@/game/textures";
-import { G, applyBlock, closeUi, die, eatHeldFood, tickHealth, hostTick, invChanged, refreshRoster, openChat, openChest, startRound, teleportToSpawn } from "@/game/engine";
+import { G, applyBlock, closeUi, die, eatHeldFood, tickEating, cancelEating, tickHealth, hostTick, invChanged, refreshRoster, openChat, openChest, startRound, teleportToSpawn } from "@/game/engine";
 import { hud, pushFeed, useHud } from "@/game/store";
 import { addItem, BREAK_TIME, countItem, def, FIST_POWER, removeItem } from "@/game/items";
 import { playerId, send } from "@/game/net";
 import { arrowDamage, meleeDamage, MAX_HEALTH } from "@/game/combat";
 import { surfaceGeometry } from "@/game/voxel-geometry";
+import { armorAppearance, ARMOR_TIERS } from "@/game/armor-appearance";
 
 // ---------- feel constants ----------
 const SPEED = 5.2;
@@ -92,6 +93,42 @@ const colorFor = (id: string) => {
 
 const tmp = new THREE.Vector3();
 
+// Editable voxel characters retain their blocky silhouette; shells follow animated limbs.
+function ArmorShell({ id, part, size, position = [0, 0, 0] }: { id: string; part: number; size: [number, number, number]; position?: [number, number, number] }) {
+  const root = useRef<THREE.Group>(null);
+  const material = useRef<THREE.MeshStandardMaterial>(null);
+  const trim = useRef<THREE.MeshStandardMaterial>(null);
+  const palette = useRef<Record<string, { color: string; trim: string }>>({});
+  const previous = useRef("");
+  useEffect(() => {
+    const css = getComputedStyle(document.documentElement);
+    for (const tier of ARMOR_TIERS) palette.current[tier] = { color: css.getPropertyValue(`--armor-${tier}`).trim(), trim: css.getPropertyValue(`--armor-${tier}-trim`).trim() };
+  }, []);
+  useFrame(() => {
+    const appearance = armorAppearance(G.remotes.get(id)?.armor?.[part]);
+    if (root.current) root.current.visible = !!appearance;
+    const tier = appearance?.tier ?? "";
+    if (previous.current === tier || !appearance || !material.current || !trim.current) return;
+    const colors = palette.current[tier];
+    if (!colors) return;
+    previous.current = tier;
+    material.current.color.set(colors.color);
+    material.current.metalness = tier === "leather" ? 0 : tier === "iron" ? 0.65 : 0.3;
+    material.current.roughness = tier === "leather" ? 0.95 : tier === "iron" ? 0.4 : 0.2;
+    trim.current.color.set(colors.trim);
+  });
+  return <group ref={root} visible={false} position={position}>
+    <mesh position={part === 0 ? [0, 0.12, 0] : [0, 0, 0]}>
+      <boxGeometry args={part === 0 ? [size[0], 0.3, size[2]] : size} />
+      <meshStandardMaterial ref={material} />
+    </mesh>
+    <mesh position={[0, part === 0 ? -0.06 : -size[1] * 0.35, 0]}>
+      <boxGeometry args={[size[0] + 0.008, part === 0 ? 0.1 : 0.045, size[2] + 0.008]} />
+      <meshStandardMaterial ref={trim} />
+    </mesh>
+  </group>;
+}
+
 function Avatar({ id, name }: { id: string; name: string }) {
   const g = useRef<THREE.Group>(null);
   const legL = useRef<THREE.Mesh>(null);
@@ -130,7 +167,7 @@ function Avatar({ id, name }: { id: string; name: string }) {
     if (legL.current) legL.current.rotation.x = sw;
     if (legR.current) legR.current.rotation.x = -sw;
     if (armL.current) armL.current.rotation.x = -sw;
-    if (armR.current) armR.current.rotation.x = sw;
+    if (armR.current) armR.current.rotation.x = s.eating ? -1.8 + Math.sin(performance.now() / 50) * 0.16 : sw;
   });
 
   return (
@@ -139,29 +176,37 @@ function Avatar({ id, name }: { id: string; name: string }) {
         <mesh ref={legL} position={[-0.13, 0, 0]} castShadow>
           <boxGeometry args={[0.25, 0.75, 0.25]} />
           <meshStandardMaterial color="#2d3a5c" roughness={0.9} />
+          <ArmorShell id={id} part={2} size={[0.28, 0.71, 0.29]} />
+          <ArmorShell id={id} part={3} size={[0.3, 0.24, 0.33]} position={[0, -0.25, -0.015]} />
         </mesh>
         <mesh ref={legR} position={[0.13, 0, 0]} castShadow>
           <boxGeometry args={[0.25, 0.75, 0.25]} />
           <meshStandardMaterial color="#2d3a5c" roughness={0.9} />
+          <ArmorShell id={id} part={2} size={[0.28, 0.71, 0.29]} />
+          <ArmorShell id={id} part={3} size={[0.3, 0.24, 0.33]} position={[0, -0.25, -0.015]} />
         </mesh>
       </group>
       <mesh position={[0, 1.12, 0]} castShadow>
         <boxGeometry args={[0.52, 0.75, 0.28]} />
         <meshStandardMaterial color={color} roughness={0.9} />
+        <ArmorShell id={id} part={1} size={[0.57, 0.78, 0.33]} />
       </mesh>
       <group position={[0, 1.45, 0]}>
         <mesh ref={armL} position={[-0.38, -0.32, 0]} castShadow>
           <boxGeometry args={[0.22, 0.72, 0.22]} />
           <meshStandardMaterial color={color} roughness={0.9} />
+          <ArmorShell id={id} part={1} size={[0.27, 0.26, 0.27]} position={[0, 0.22, 0]} />
         </mesh>
         <mesh ref={armR} position={[0.38, -0.32, 0]} castShadow>
           <boxGeometry args={[0.22, 0.72, 0.22]} />
           <meshStandardMaterial color={color} roughness={0.9} />
+          <ArmorShell id={id} part={1} size={[0.27, 0.26, 0.27]} position={[0, 0.22, 0]} />
         </mesh>
       </group>
       <mesh position={[0, 1.76, 0]} castShadow>
         <boxGeometry args={[0.5, 0.5, 0.5]} />
         <meshStandardMaterial color="#e7b98f" roughness={0.9} />
+        <ArmorShell id={id} part={0} size={[0.56, 0.54, 0.56]} />
       </mesh>
       <mesh position={[0, 1.8, -0.255]}>
         <boxGeometry args={[0.32, 0.08, 0.01]} />
@@ -380,7 +425,7 @@ function PlayerController() {
     };
     const onLock = () => {
       const locked = document.pointerLockElement === el;
-      if (!locked) { mouse.current.left = false; mouse.current.right = false; keys.clear(); }
+      if (!locked) { mouse.current.left = false; mouse.current.right = false; keys.clear(); cancelEating(); }
       hud.set({ locked });
     };
     const onMove = (e: MouseEvent) => {
@@ -399,11 +444,12 @@ function PlayerController() {
     };
     const onUp = (e: MouseEvent) => {
       if (e.button === 0) mouse.current.left = false;
-      if (e.button === 2 && mouse.current.right) { mouse.current.right = false; actions.push("release"); }
+      if (e.button === 2 && mouse.current.right) { mouse.current.right = false; cancelEating(); actions.push("release"); }
     };
     const onWheel = (e: WheelEvent) => {
       if (document.pointerLockElement !== el || hud.get().chatOpen) return;
       G.self.sel = (G.self.sel + (e.deltaY > 0 ? 1 : 8)) % 9;
+      cancelEating();
       invChanged();
     };
     const onKeyDown = (e: KeyboardEvent) => {
@@ -431,7 +477,7 @@ function PlayerController() {
       if (e.code === "Space") e.preventDefault();
       if (e.code.startsWith("Digit")) {
         const n = Number(e.code.slice(5));
-        if (n >= 1 && n <= 9) { G.self.sel = n - 1; invChanged(); }
+        if (n >= 1 && n <= 9) { cancelEating(); G.self.sel = n - 1; invChanged(); }
       }
       if (e.code === "Enter") startRound();
     };
@@ -439,7 +485,7 @@ function PlayerController() {
       keys.delete(e.code);
     };
     const noMenu = (e: Event) => e.preventDefault();
-    const onBlur = () => keys.clear();
+    const onBlur = () => { keys.clear(); mouse.current.left = false; mouse.current.right = false; cancelEating(); };
     el.addEventListener("click", onClick);
     el.addEventListener("contextmenu", noMenu);
     document.addEventListener("pointerlockchange", onLock);
@@ -609,6 +655,7 @@ function PlayerController() {
     }
 
     // bow charge HUD
+    tickEating(mouse.current.right && document.pointerLockElement === gl.domElement && !mouse.current.left);
     const charging = canAct && mouse.current.right && held?.id === "bow";
     const ch = charging ? Math.min(1, (performance.now() - mouse.current.rightAt) / 900) : 0;
     if (Math.abs(ch - hud.get().bowCharge) > 0.05 || (ch === 0 && hud.get().bowCharge !== 0)) hud.set({ bowCharge: ch });
@@ -652,7 +699,7 @@ function PlayerController() {
       const stale = clock.elapsedTime - l.at > 1;
       if (moved || stale) {
         last.current = { x, y, z, ry, a, c, at: clock.elapsedTime };
-        send("state", { id: playerId, name: G.name, x, y, z, ry, alive: a, c, hp: me.health });
+        send("state", { id: playerId, name: G.name, x, y, z, ry, alive: a, c, hp: me.health, armor: me.armor.map((item) => item?.id ?? null), eating: me.eating?.id ?? null });
       }
     }
 
