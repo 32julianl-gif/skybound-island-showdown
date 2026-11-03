@@ -6,7 +6,7 @@ import { playerId, send, type NetEvent } from "./net";
 import { addItem, chestLoot, CHEST_SIZE, INV_SIZE, type Slot } from "./items";
 import { MAX_HEALTH, HIT_LIFT, healthAfterHit, knockbackAfterArmor } from "./combat";
 import { CHAT_COOLDOWN_MS, CHAT_HISTORY_LIMIT, cleanChatText } from "./chat";
-import { healedHealth, regenerationStep } from "./healing";
+import { healedHealth, regenerationStep, eatingProgress } from "./healing";
 import { def } from "./items";
 
 export type Arrow = { id: number; from: string; p: THREE.Vector3; v: THREE.Vector3; stuck: number };
@@ -21,6 +21,8 @@ export type NetState = {
   alive: boolean;
   c?: boolean;
   hp?: number;
+  armor?: (string | null)[];
+  eating?: string | null;
 };
 
 export const G = {
@@ -49,6 +51,7 @@ export const G = {
   self: {
     health: MAX_HEALTH,
     regenAt: 0,
+    eating: null as { id: string; slot: number; startedAt: number } | null,
     pos: new THREE.Vector3(22.5, 1, 0.5),
     vel: new THREE.Vector3(),
     kb: new THREE.Vector2(),
@@ -91,6 +94,7 @@ export function setChestSlot(id: number, slot: number, item: Slot, broadcast: bo
 
 function resetInventory(withStarter: boolean) {
   const me = G.self;
+  cancelEating();
   me.inv = Array(INV_SIZE).fill(null);
   me.armor = [null, null, null, null];
   me.sel = 0;
@@ -113,6 +117,7 @@ export function closeUi() {
 }
 
 export function openChat() {
+  cancelEating();
   closeUi();
   hud.set({ chatOpen: true });
   document.exitPointerLock?.();
@@ -130,6 +135,7 @@ export function sendChat(text: string): boolean {
 }
 
 function resetHealth() {
+  cancelEating();
   G.self.health = MAX_HEALTH;
   G.self.regenAt = performance.now();
   G.self.lastHitter = "";
@@ -151,12 +157,34 @@ export function tickHealth(now = performance.now()) {
   hud.set({ health: me.health });
 }
 
-export function eatHeldFood() {
+export function cancelEating() {
+  G.self.eating = null;
+}
+
+/** Start eating; healing and consumption happen only after a completed hold. */
+export function eatHeldFood(now = performance.now()) {
   const me = G.self;
   if (G.phase !== "playing" || me.spectator || !G.alive.has(playerId) || me.health <= 0 || me.health >= MAX_HEALTH || G.ui.open !== null || hud.get().chatOpen) return false;
   const item = me.inv[me.sel];
   const healing = item ? def(item.id).heal : undefined;
   if (!item || item.n <= 0 || !healing) return false;
+  if (me.eating) return false;
+  me.eating = { id: item.id, slot: me.sel, startedAt: now };
+  return true;
+}
+
+export function tickEating(holding: boolean, now = performance.now()) {
+  const me = G.self;
+  const eating = me.eating;
+  if (!eating) return false;
+  const item = me.inv[me.sel];
+  if (!holding || G.phase !== "playing" || me.spectator || !G.alive.has(playerId) || me.health <= 0 || me.health >= MAX_HEALTH || G.ui.open !== null || hud.get().chatOpen || eating.slot !== me.sel || item?.id !== eating.id || item.n <= 0) {
+    cancelEating();
+    return false;
+  }
+  if (eatingProgress(eating.startedAt, now) < 1) return false;
+  const healing = def(item.id).heal ?? 0;
+  cancelEating();
   me.health = healedHealth(me.health, healing);
   item.n -= 1;
   if (item.n === 0) me.inv[me.sel] = null;
