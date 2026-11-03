@@ -1,4 +1,6 @@
 # Roadmap
+- [ ] Timed food consumption with eating animation and cancellation
+- [ ] Visible tier-specific worn armor and armor item art, with gameplay verification
 - [ ] Reduce castle rendering cost without changing its layout
 - [ ] Shuffle and synchronize map sequences, with tests and gameplay verification
 - [x] Add and verify a large central castle map with floating guard towers
