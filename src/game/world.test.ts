@@ -6,7 +6,7 @@ describe("reworked island arenas", () => {
     const world = generateWorld(0);
     expect(world.get(1, 18, 0)).toBe(BLOCK.LOG);
     expect(world.get(0, 25, 0)).toBe(BLOCK.LEAVES);
-    expect(world.get(6, 16, 0)).toBe(BLOCK.LEAVES);
+    expect(world.get(6, 17, 1)).toBe(BLOCK.LEAVES);
     expect(world.get(5, 1, 5)).toBe(BLOCK.LOG);
     expect(world.get(0, 2, 2)).toBe(0);
     world.set(1, 18, 0, 0);
