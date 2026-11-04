@@ -191,7 +191,9 @@ function HeldSword({ remoteId }: { remoteId?: string }) {
     group.visible = !!tier && (remoteId ? !G.remotes.get(remoteId)?.eating : !G.self.spectator && G.ui.open === null && !G.self.eating);
     group.children.forEach((child, i) => { child.visible = SWORD_TIERS[i] === tier; });
     if (!remoteId) {
-      group.position.set(0.46, -0.48 + Math.sin(clock.elapsedTime * 5) * Math.min(G.self.vel.length() * 0.002, 0.015), -0.8).applyQuaternion(camera.quaternion).add(camera.position);
+      const aspect = (camera as THREE.PerspectiveCamera).aspect;
+      group.scale.setScalar(0.65);
+      group.position.set(Math.min(0.46, aspect * 0.34), -0.38 + Math.sin(clock.elapsedTime * 5) * Math.min(G.self.vel.length() * 0.002, 0.015), -0.85).applyQuaternion(camera.quaternion).add(camera.position);
       group.quaternion.copy(camera.quaternion);
       group.rotateZ(-0.32);
       group.rotateX(0.15);
