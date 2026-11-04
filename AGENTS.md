@@ -11,6 +11,8 @@
 
 - Sky Wars game: mutable game state lives in `src/game/engine.ts` (G), HUD reads a tiny external store (`src/game/store.ts`); networking is client-authoritative Cloud realtime broadcast, one channel per room (`src/game/net.ts`). Why: per-frame data must stay out of React state, and there is no game server.
 - World generation in `src/game/world.ts` must stay deterministic (hash-based, no Math.random). Why: every client builds the same map locally; only block edits are broadcast.
+- Arena trees and ruins are editable voxels in world generation with clear chest/spawn cells. Why: all clients must share rendering, collision, mining and loot access.
+- Sword silhouettes live in `src/game/sword-appearance.ts`; item SVGs and held meshes reuse them with global CSS material tokens, and held IDs use existing state packets. Why: tier looks remain consistent without extra room channels.
 - Castle structures use real editable voxels in world generation, with clear spawn/chest positions and separated tower islands. Why: rendering, collision, mining, and multiplayer must share the same geometry.
 - Render world voxels as merged exposed-face geometry in `src/game/voxel-geometry.ts`, leaving world blocks intact. Why: hidden faces and instance transforms must not consume castle frame time or alter mining/collision.
 - Map order uses seeded shuffled bags in `src/game/map-sequence.ts`; the host broadcasts the seed on start/reset/sync. Why: randomized rounds and late joiners must generate the same map even after host changes.

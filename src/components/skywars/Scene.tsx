@@ -12,7 +12,6 @@ import { arrowDamage, meleeDamage, MAX_HEALTH } from "@/game/combat";
 import { surfaceGeometry } from "@/game/voxel-geometry";
 import { armorAppearance, ARMOR_TIERS } from "@/game/armor-appearance";
 import { swordAppearance, SWORD_PIXELS, SWORD_TIERS } from "@/game/sword-appearance";
-import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 
 // ---------- feel constants ----------
 const SPEED = 5.2;

@@ -113,11 +113,10 @@ function giantTree(w: World) {
   }
   // Four doorways keep the courtyard loot and the hollow interior reachable.
   for (const side of [-1, 1]) {
-    fill(w, side, side * 2 > side ? side * 2 : side, 1, 3, 0, 0, 0);
-    fill(w, 0, 0, 1, 3, side, side * 2 > side ? side * 2 : side, 0);
-    // Clear the negative-side extension as well.
-    w.set(side * 2, 1, 0, 0); w.set(side * 2, 2, 0, 0); w.set(side * 2, 3, 0, 0);
-    w.set(0, 1, side * 2, 0); w.set(0, 2, side * 2, 0); w.set(0, 3, side * 2, 0);
+    for (let n = 1; n <= 2; n++) {
+      fill(w, side * n, side * n, 1, 3, 0, 0, 0);
+      fill(w, 0, 0, 1, 3, side * n, side * n, 0);
+    }
   }
   for (const [dx, dz] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) {
     if (dx === undefined || dz === undefined) continue;
