@@ -1,4 +1,7 @@
 # Roadmap
+- [ ] Distinct sword art and held sword visuals
+- [ ] Rework Classic Isles with a giant tree and Wide Sky with ruined towers
+- [ ] Verify map geometry, sword visuals, and gameplay rendering
 - [x] Timed food consumption with eating animation and cancellation
 - [x] Visible tier-specific worn armor and armor item art, with gameplay verification
 - [x] Reduce castle rendering cost without changing its layout
