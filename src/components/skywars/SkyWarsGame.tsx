@@ -9,6 +9,7 @@ import { connect, playerId, send } from "@/game/net";
 import { G, handleEvent, onPresence, startRound, eatHeldFood, tickEating, invChanged } from "@/game/engine";
 import { hud } from "@/game/store";
 import { EatingOverlay } from "./EatingOverlay";
+import { generateWorld, mapDef, MAP_COUNT } from "@/game/world";
 
 export function SkyWarsGame({ room, name }: { room: string; name: string }) {
   useEffect(() => {
@@ -16,12 +17,21 @@ export function SkyWarsGame({ room, name }: { room: string; name: string }) {
     if (import.meta.env.DEV) {
       const debugWindow = window as typeof window & { __game?: unknown };
       debugWindow.__game = {
-        get state() { return { id: playerId, phase: G.phase, health: G.self.health, armor: G.self.armor, inventory: G.self.inv, eating: G.self.eating, remotes: [...G.remotes.values()], roster: G.roster, position: G.self.pos.toArray(), chat: hud.get().chat, spectator: G.self.spectator }; },
+        get state() { return { id: playerId, map: G.map, phase: G.phase, health: G.self.health, armor: G.self.armor, inventory: G.self.inv, eating: G.self.eating, remotes: [...G.remotes.values()], roster: G.roster, position: G.self.pos.toArray(), chat: hud.get().chat, spectator: G.self.spectator }; },
+        showMap(index: number) {
+          if (!Number.isInteger(index) || index < 0 || index >= MAP_COUNT) return;
+          G.map = index; G.world = generateWorld(index); G.edits.clear(); G.opened.clear(); G.chests.clear();
+          hud.set({ version: hud.get().version + 1, mapName: mapDef(index).name });
+        },
+        prepareSwords() {
+          ["wood", "stone", "iron", "diamond"].forEach((tier, i) => { G.self.inv[i] = { id: `${tier}_sword`, n: 1 }; });
+          G.self.sel = 0; invChanged();
+        },
         startRound,
         eat: eatHeldFood,
         tickEating,
         prepareFood(id = "apple") { G.self.health = 10; G.self.inv[0] = { id, n: 2 }; G.self.sel = 0; hud.set({ health: 10 }); invChanged(); },
-        place(x: number, y: number, z: number, yaw = 0) { G.self.pos.set(x, y, z); G.self.vel.set(0, 0, 0); G.self.yaw = yaw; G.self.pitch = 0; },
+        place(x: number, y: number, z: number, yaw = 0, pitch = 0) { G.self.pos.set(x, y, z); G.self.vel.set(0, 0, 0); G.self.yaw = yaw; G.self.pitch = pitch; },
         hit(target: string, damage = 4) { send("hit", { from: playerId, target, damage, power: 10, dx: 1, dz: 0, round: G.round }); },
         equip(ids: string[]) { G.self.armor = ids.map((id) => ({ id, n: 1 })); hud.set({ invV: hud.get().invV + 1 }); },
       };

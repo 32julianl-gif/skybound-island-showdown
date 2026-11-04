@@ -58,11 +58,11 @@ function tree(w: World, x: number, z: number) {
 export const MAX_PLAYERS = 8;
 
 export type Chest = { id: number; x: number; y: number; z: number };
-type MapCfg = { name: string; ring: number; spawnR: number; center: number; centerDepth: number; mids: number; midRing: number; midR: number; trees: [number, number][]; castle?: boolean };
+type MapCfg = { name: string; ring: number; spawnR: number; center: number; centerDepth: number; mids: number; midRing: number; midR: number; trees: [number, number][]; castle?: boolean; giantTree?: boolean; ruins?: boolean };
 
 const MAPS: MapCfg[] = [
-  { name: "Classic Isles", ring: 22, spawnR: 3.5, center: 6.5, centerDepth: 6, mids: 4, midRing: 11, midR: 2.6, trees: [[4, 4], [-4, -4]] },
-  { name: "Wide Sky", ring: 27, spawnR: 3, center: 8, centerDepth: 7, mids: 6, midRing: 15, midR: 2.2, trees: [[5, -3], [-5, 3], [0, 6]] },
+  { name: "Classic Isles", ring: 26, spawnR: 3.5, center: 10, centerDepth: 7, mids: 4, midRing: 16, midR: 2.6, trees: [], giantTree: true },
+  { name: "Wide Sky", ring: 30, spawnR: 3, center: 10, centerDepth: 7, mids: 6, midRing: 18, midR: 3.2, trees: [], ruins: true },
   { name: "Archipelago", ring: 19, spawnR: 3.2, center: 4, centerDepth: 4, mids: 8, midRing: 10, midR: 2, trees: [[2, -2]] },
   { name: "Sky Citadel", ring: 42, spawnR: 4, center: 17, centerDepth: 9, mids: 4, midRing: 27, midR: 4.5, trees: [], castle: true },
 ];
@@ -100,6 +100,74 @@ function fill(w: World, x0: number, x1: number, y0: number, y1: number, z0: numb
   for (let x = x0; x <= x1; x++)
     for (let y = y0; y <= y1; y++)
       for (let z = z0; z <= z1; z++) w.set(x, y, z, t);
+}
+
+/** A towering editable oak with a hollow trunk, roots, branches and layered crown. */
+function giantTree(w: World) {
+  for (let y = 1; y <= 19; y++) {
+    const r = y < 5 ? 2 : 1;
+    for (let x = -r; x <= r; x++) for (let z = -r; z <= r; z++) {
+      if (x === 0 && z === 0) continue;
+      w.set(x, y, z, BLOCK.LOG);
+    }
+  }
+  // Four doorways keep the courtyard loot and the hollow interior reachable.
+  for (const side of [-1, 1]) {
+    for (let n = 1; n <= 2; n++) {
+      fill(w, side * n, side * n, 1, 3, 0, 0, 0);
+      fill(w, 0, 0, 1, 3, side * n, side * n, 0);
+    }
+  }
+  for (const [dx, dz] of [[1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+    if (dx === undefined || dz === undefined) continue;
+    for (let n = 2; n <= 6; n++) {
+      w.set(dx * n, 1, dz * n, BLOCK.LOG);
+      if (n < 4) w.set(dx * n, 2, dz * n, BLOCK.LOG);
+    }
+  }
+  const crowns: [number, number, number, number][] = [[0, 22, 0, 7], [6, 16, 0, 4], [-6, 17, 0, 4], [0, 18, 6, 4], [0, 16, -6, 4]];
+  for (const [cx, cy, cz, r] of crowns) {
+    for (let x = -r; x <= r; x++) for (let z = -r; z <= r; z++) for (let y = -3; y <= 3; y++) {
+      if ((x * x + z * z) / (r * r) + y * y / 16 > 1 + hash(cx + x, cz + z, cy + y) * 0.12) continue;
+      if (!w.get(cx + x, cy + y, cz + z)) w.set(cx + x, cy + y, cz + z, BLOCK.LEAVES);
+    }
+    if (cx !== 0 || cz !== 0) {
+      const steps = Math.max(Math.abs(cx), Math.abs(cz));
+      for (let n = 1; n <= steps; n++) {
+        const y = cy - 3 + Math.floor(n / 2);
+        w.set(Math.round(cx * n / steps), y, Math.round(cz * n / steps), BLOCK.LOG);
+      }
+    }
+  }
+}
+
+/** Weathered, roofless masonry: gaps, broken parapets, rubble and leaf overgrowth. */
+function ruinedTower(w: World, cx: number, cz: number, height: number, seed: number) {
+  fill(w, cx - 2, cx + 2, 0, 0, cz - 2, cz + 2, BLOCK.STONE);
+  for (let x = -2; x <= 2; x++) for (let z = -2; z <= 2; z++) {
+    if (Math.abs(x) !== 2 && Math.abs(z) !== 2) continue;
+    const top = height - Math.floor(hash(cx + x, cz + z, seed) * 4);
+    for (let y = 1; y <= top; y++) {
+      if ((z === -2 || z === 2) && x === 0 && y <= 3) continue;
+      if (y > 2 && hash(cx + x, cz + z, seed + y * 13) < 0.18) continue;
+      w.set(cx + x, y, cz + z, BLOCK.STONE);
+    }
+    if (hash(cx + x, cz + z, seed + 91) > 0.5) w.set(cx + x, 1, cz + z, BLOCK.LEAVES);
+  }
+  // Broken landings stay away from the chest and both open entrances.
+  for (let n = 0; n < 3; n++) w.set(cx - 1, n + 1, cz + 1 - n, BLOCK.PLANKS);
+  w.set(cx + 1, 1, cz + 1, BLOCK.STONE);
+}
+
+function wideRuins(w: World, mids: { x: number; z: number }[]) {
+  ruinedTower(w, -5, -4, 10, 101);
+  ruinedTower(w, 5, 4, 7, 203);
+  // A fractured arch between the central towers, with an open passage below.
+  fill(w, -2, -2, 1, 5, -6, -6, BLOCK.STONE);
+  fill(w, 2, 2, 1, 4, -6, -6, BLOCK.STONE);
+  fill(w, -2, 0, 5, 5, -6, -6, BLOCK.STONE);
+  w.set(1, 4, -6, BLOCK.STONE);
+  mids.forEach((p, i) => ruinedTower(w, p.x, p.z, 5 + i % 3, 307 + i * 29));
 }
 
 /** Hollow towers, open ground-level doorways, and jumpable internal stairs. */
@@ -169,6 +237,8 @@ export function generateWorld(map = 0) {
   for (const [x, z] of d.trees) tree(w, x, z);
   for (const m of d.mids) island(w, m.x, m.z, d.midR, 3);
   for (const s of d.spawns) island(w, s.x, s.z, d.spawnR, 4);
+  if (d.giantTree) giantTree(w);
+  if (d.ruins) wideRuins(w, d.mids);
   if (d.castle) {
     castle(w);
     for (const m of d.mids) guardTower(w, m.x, m.z, 7);

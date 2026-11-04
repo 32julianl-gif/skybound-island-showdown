@@ -110,6 +110,20 @@
   --food-bread: #e4b260;
   --food-crust: #a96530;
   --player-skin: #e7b98f;
+  --sword-wood-blade: #b98b51;
+  --sword-wood-edge: #e2b77a;
+  --sword-wood-guard: #73502e;
+  --sword-stone-blade: #7c858b;
+  --sword-stone-edge: #b0b7ba;
+  --sword-stone-guard: #4c565b;
+  --sword-iron-blade: #ccd6dc;
+  --sword-iron-edge: #f2fafb;
+  --sword-iron-guard: #8b969f;
+  --sword-diamond-blade: #45ddd1;
+  --sword-diamond-edge: #b9fff4;
+  --sword-diamond-guard: #168a9c;
+  --sword-grip: #583934;
+  --sword-jewel: #efc951;
 }
 
 .dark {
@@ -221,6 +235,15 @@
   .hurt-vignette { background: radial-gradient(circle, transparent 45%, var(--hurt)); }
   .lobby-scrim { background: linear-gradient(180deg, oklch(0.2 0.05 250 / 0.2), oklch(0.18 0.05 250 / 0.65)); }
   .item-art { width: 1.8rem; height: 1.8rem; flex-shrink: 0; image-rendering: pixelated; }
+  .sword-wood { --sword-blade: var(--sword-wood-blade); --sword-edge: var(--sword-wood-edge); --sword-guard: var(--sword-wood-guard); }
+  .sword-stone { --sword-blade: var(--sword-stone-blade); --sword-edge: var(--sword-stone-edge); --sword-guard: var(--sword-stone-guard); }
+  .sword-iron { --sword-blade: var(--sword-iron-blade); --sword-edge: var(--sword-iron-edge); --sword-guard: var(--sword-iron-guard); }
+  .sword-diamond { --sword-blade: var(--sword-diamond-blade); --sword-edge: var(--sword-diamond-edge); --sword-guard: var(--sword-diamond-guard); }
+  .sword-pixel-b { fill: var(--sword-blade); }
+  .sword-pixel-e { fill: var(--sword-edge); }
+  .sword-pixel-g { fill: var(--sword-guard); }
+  .sword-pixel-h { fill: var(--sword-grip); }
+  .sword-pixel-j { fill: var(--sword-jewel); }
   .armor-leather { color: var(--armor-leather); --armor-trim: var(--armor-leather-trim); }
   .armor-iron { color: var(--armor-iron); --armor-trim: var(--armor-iron-trim); }
   .armor-diamond { color: var(--armor-diamond); --armor-trim: var(--armor-diamond-trim); }
