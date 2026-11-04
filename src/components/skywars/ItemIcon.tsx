@@ -1,5 +1,6 @@
 import { armorAppearance } from "@/game/armor-appearance";
 import { def } from "@/game/items";
+import { swordAppearance, SWORD_PIXELS } from "@/game/sword-appearance";
 
 const SILHOUETTES: Record<string, string> = {
   helmet: "M3 3h10v2h2v8h-4v-3H5v3H1V5h2z",
@@ -8,6 +9,12 @@ const SILHOUETTES: Record<string, string> = {
   boots: "M2 2h4v9h1v4H0v-4h2zm8 0h4v9h2v4H9v-4h1z",
 };
 export function ItemIcon({ id }: { id: string }) {
+  const sword = swordAppearance(id);
+  if (sword) return <svg viewBox="0 0 20 20" className={`item-art sword-${sword}`} aria-hidden="true" shapeRendering="crispEdges">
+    <g transform="translate(10 10) rotate(35) translate(-6 -8)">
+      {SWORD_PIXELS[sword].flatMap((row, y) => [...row].map((pixel, x) => pixel === " " ? null : <rect key={`${x}-${y}`} x={x} y={y} width={1} height={1} className={`sword-pixel-${pixel}`} />))}
+    </g>
+  </svg>;
   const armor = armorAppearance(id);
   if (armor) return (
     <svg viewBox="0 0 16 16" className={`item-art armor-${armor.tier}`} aria-hidden="true" shapeRendering="crispEdges">

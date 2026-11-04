@@ -23,6 +23,7 @@ export type NetState = {
   hp?: number;
   armor?: (string | null)[];
   eating?: string | null;
+  held?: string | null;
 };
 
 export const G = {

@@ -11,6 +11,8 @@ import { playerId, send } from "@/game/net";
 import { arrowDamage, meleeDamage, MAX_HEALTH } from "@/game/combat";
 import { surfaceGeometry } from "@/game/voxel-geometry";
 import { armorAppearance, ARMOR_TIERS } from "@/game/armor-appearance";
+import { swordAppearance, SWORD_PIXELS, SWORD_TIERS } from "@/game/sword-appearance";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 
 // ---------- feel constants ----------
 const SPEED = 5.2;
@@ -148,6 +150,59 @@ function EatingFood({ id }: { id: string }) {
   return <mesh ref={mesh} visible={false} position={[0, -0.45, 0]}><boxGeometry args={[0.22, 0.22, 0.22]} /><meshStandardMaterial ref={material} roughness={0.9} /></mesh>;
 }
 
+// Build each pixel blade once; shared silhouettes make item and held art agree.
+function HeldSword({ remoteId }: { remoteId?: string }) {
+  const root = useRef<THREE.Group>(null);
+  const { camera } = useThree();
+  const resources = useMemo(() => SWORD_TIERS.map((tier) => {
+    const pixels: THREE.BufferGeometry[] = [];
+    const kinds = ["b", "e", "g", "h", "j"];
+    const geometry = new THREE.BufferGeometry();
+    const positions: number[] = [], normals: number[] = [];
+    kinds.forEach((kind, materialIndex) => {
+      const start = positions.length / 3;
+      SWORD_PIXELS[tier].forEach((row, y) => [...row].forEach((pixel, x) => {
+        if (pixel !== kind) return;
+        const box = new THREE.BoxGeometry(0.065, 0.065, 0.06).toNonIndexed();
+        box.translate((x - 5.5) * 0.065, (13 - y) * 0.065, 0);
+        pixels.push(box);
+        positions.push(...box.getAttribute("position").array);
+        normals.push(...box.getAttribute("normal").array);
+      }));
+      geometry.addGroup(start, positions.length / 3 - start, materialIndex);
+    });
+    geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
+    pixels.forEach((pixel) => pixel.dispose());
+    return { tier, geometry, materials: kinds.map(() => new THREE.MeshStandardMaterial({ roughness: tier === "wood" || tier === "stone" ? 0.9 : 0.35, metalness: tier === "iron" ? 0.65 : 0 })) };
+  }), []);
+  useEffect(() => {
+    const css = getComputedStyle(document.documentElement);
+    resources.forEach(({ tier, materials }) => {
+      ["blade", "edge", "guard", "grip", "jewel"].forEach((part, i) => {
+        materials[i]?.color.set(css.getPropertyValue(part === "grip" || part === "jewel" ? `--sword-${part}` : `--sword-${tier}-${part}`).trim());
+      });
+    });
+    return () => resources.forEach(({ geometry, materials }) => { geometry.dispose(); materials.forEach((m) => m.dispose()); });
+  }, [resources]);
+  useFrame(({ clock }) => {
+    const group = root.current;
+    if (!group) return;
+    const tier = swordAppearance(remoteId ? G.remotes.get(remoteId)?.held : heldItem()?.id);
+    group.visible = !!tier && (remoteId ? !G.remotes.get(remoteId)?.eating : !G.self.spectator && G.ui.open === null && !G.self.eating);
+    group.children.forEach((child, i) => { child.visible = SWORD_TIERS[i] === tier; });
+    if (!remoteId) {
+      group.position.set(0.46, -0.48 + Math.sin(clock.elapsedTime * 5) * Math.min(G.self.vel.length() * 0.002, 0.015), -0.8).applyQuaternion(camera.quaternion).add(camera.position);
+      group.quaternion.copy(camera.quaternion);
+      group.rotateZ(-0.32);
+      group.rotateX(0.15);
+    }
+  });
+  return <group ref={root} visible={false} position={remoteId ? [0, -0.4, -0.15] : [0, 0, 0]} rotation={remoteId ? [-Math.PI / 2, 0, 0] : [0, 0, 0]}>
+    {resources.map(({ tier, geometry, materials }) => <mesh key={tier} geometry={geometry} material={materials} />)}
+  </group>;
+}
+
 function Avatar({ id, name }: { id: string; name: string }) {
   const g = useRef<THREE.Group>(null);
   const legL = useRef<THREE.Mesh>(null);
@@ -221,6 +276,7 @@ function Avatar({ id, name }: { id: string; name: string }) {
           <meshStandardMaterial color={color} roughness={0.9} />
           <ArmorShell id={id} part={1} size={[0.27, 0.26, 0.27]} position={[0, 0.22, 0]} />
           <EatingFood id={id} />
+          <HeldSword remoteId={id} />
         </mesh>
       </group>
       <mesh position={[0, 1.76, 0]} castShadow>
@@ -718,13 +774,14 @@ function PlayerController() {
       const l = last.current;
       const armor = me.armor.map((item) => item?.id ?? null);
       const eating = me.eating?.id ?? null;
-      const appearance = `${armor.join(",")}:${eating ?? ""}:${me.health}`;
+      const heldId = held?.id ?? null;
+      const appearance = `${armor.join(",")}:${eating ?? ""}:${me.health}:${heldId ?? ""}`;
       const moved = Math.abs(x - l.x) + Math.abs(y - l.y) + Math.abs(z - l.z) + Math.abs(ry - l.ry) > 0.01 || a !== l.a || c !== l.c;
       const stale = clock.elapsedTime - l.at > 1;
       if (moved || stale || appearance !== lastAppearance.current) {
         lastAppearance.current = appearance;
         last.current = { x, y, z, ry, a, c, at: clock.elapsedTime };
-        send("state", { id: playerId, name: G.name, x, y, z, ry, alive: a, c, hp: me.health, armor, eating });
+        send("state", { id: playerId, name: G.name, x, y, z, ry, alive: a, c, hp: me.health, armor, eating, held: heldId });
       }
     }
 
@@ -750,6 +807,7 @@ export function Scene() {
       <Arrows />
       <BreakOverlay />
       <PlayerController />
+      <HeldSword />
     </>
   );
 }
