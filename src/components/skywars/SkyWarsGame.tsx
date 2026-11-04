@@ -9,6 +9,7 @@ import { connect, playerId, send } from "@/game/net";
 import { G, handleEvent, onPresence, startRound, eatHeldFood, tickEating, invChanged } from "@/game/engine";
 import { hud } from "@/game/store";
 import { EatingOverlay } from "./EatingOverlay";
+import { generateWorld, mapDef, MAP_COUNT } from "@/game/world";
 
 export function SkyWarsGame({ room, name }: { room: string; name: string }) {
   useEffect(() => {
@@ -16,7 +17,16 @@ export function SkyWarsGame({ room, name }: { room: string; name: string }) {
     if (import.meta.env.DEV) {
       const debugWindow = window as typeof window & { __game?: unknown };
       debugWindow.__game = {
-        get state() { return { id: playerId, phase: G.phase, health: G.self.health, armor: G.self.armor, inventory: G.self.inv, eating: G.self.eating, remotes: [...G.remotes.values()], roster: G.roster, position: G.self.pos.toArray(), chat: hud.get().chat, spectator: G.self.spectator }; },
+        get state() { return { id: playerId, map: G.map, phase: G.phase, health: G.self.health, armor: G.self.armor, inventory: G.self.inv, eating: G.self.eating, remotes: [...G.remotes.values()], roster: G.roster, position: G.self.pos.toArray(), chat: hud.get().chat, spectator: G.self.spectator }; },
+        showMap(index: number) {
+          if (!Number.isInteger(index) || index < 0 || index >= MAP_COUNT) return;
+          G.map = index; G.world = generateWorld(index); G.edits.clear(); G.opened.clear(); G.chests.clear();
+          hud.set({ version: hud.get().version + 1, mapName: mapDef(index).name });
+        },
+        prepareSwords() {
+          ["wood", "stone", "iron", "diamond"].forEach((tier, i) => { G.self.inv[i] = { id: `${tier}_sword`, n: 1 }; });
+          G.self.sel = 0; invChanged();
+        },
         startRound,
         eat: eatHeldFood,
         tickEating,
