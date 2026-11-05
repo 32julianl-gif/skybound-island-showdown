@@ -6,6 +6,7 @@ import { def } from "@/game/items";
 import { playerId } from "@/game/net";
 import { MAX_HEALTH } from "@/game/combat";
 import { ItemIcon } from "./ItemIcon";
+import { MAX_SENSITIVITY, MIN_SENSITIVITY, setSensitivity, settings } from "@/game/settings";
 
 export function Hud({ room }: { room: string }) {
   const phase = useHud((s) => s.phase);
@@ -25,6 +26,7 @@ export function Hud({ room }: { room: string }) {
   const health = useHud((s) => s.health);
   const [copied, setCopied] = useState(false);
   const [flash, setFlash] = useState(false);
+  const [sensitivity, setSensitivityState] = useState(() => settings.sensitivity);
 
   useEffect(() => {
     if (!hurt) return;
@@ -148,6 +150,22 @@ export function Hud({ room }: { room: string }) {
               <span className="text-muted-foreground">Esc</span><span>This menu</span>
               <span className="text-muted-foreground">T</span><span>Room chat</span>
             </div>
+            <label className="pointer-events-auto mt-4 block text-left text-xs">
+              <span className="flex justify-between">
+                <span className="text-muted-foreground">Mouse sensitivity</span>
+                <span>{sensitivity.toFixed(2)}×</span>
+              </span>
+              <input
+                type="range"
+                aria-label="Mouse sensitivity"
+                min={MIN_SENSITIVITY}
+                max={MAX_SENSITIVITY}
+                step={0.05}
+                value={sensitivity}
+                onChange={(e) => setSensitivityState(setSensitivity(Number(e.target.value)))}
+                className="mt-1 w-full accent-primary"
+              />
+            </label>
             <button onClick={lockPointer} className="pixel-btn pixel-btn-primary pointer-events-auto mt-4 w-full">
               Resume (click)
             </button>

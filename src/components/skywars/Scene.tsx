@@ -12,6 +12,7 @@ import { arrowDamage, meleeDamage, MAX_HEALTH } from "@/game/combat";
 import { surfaceGeometry } from "@/game/voxel-geometry";
 import { armorAppearance, ARMOR_TIERS } from "@/game/armor-appearance";
 import { swordAppearance, SWORD_PIXELS, SWORD_TIERS } from "@/game/sword-appearance";
+import { settings } from "@/game/settings";
 
 // ---------- feel constants ----------
 const SPEED = 5.2;
@@ -204,8 +205,34 @@ function HeldSword({ remoteId }: { remoteId?: string }) {
   </group>;
 }
 
+// Pixel eyes sit in front of the helmet so a worn helmet never hides gaze direction.
+function Eyes({ id }: { id: string }) {
+  const root = useRef<THREE.Group>(null);
+  useFrame(() => {
+    const helmet = !!armorAppearance(G.remotes.get(id)?.armor?.[0]);
+    if (root.current) root.current.position.z = helmet ? -0.288 : -0.256;
+  });
+  return (
+    <group ref={root} position={[0, 0.04, -0.256]}>
+      {[-0.11, 0.11].map((x) => (
+        <group key={x} position={[x, 0, 0]}>
+          <mesh>
+            <boxGeometry args={[0.1, 0.12, 0.012]} />
+            <meshStandardMaterial color="#f4f6f4" roughness={0.8} />
+          </mesh>
+          <mesh position={[0, -0.015, -0.008]}>
+            <boxGeometry args={[0.05, 0.075, 0.012]} />
+            <meshStandardMaterial color="#26355c" roughness={0.7} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
 function Avatar({ id, name }: { id: string; name: string }) {
   const g = useRef<THREE.Group>(null);
+  const head = useRef<THREE.Group>(null);
   const legL = useRef<THREE.Mesh>(null);
   const legR = useRef<THREE.Mesh>(null);
   const armL = useRef<THREE.Mesh>(null);
@@ -236,6 +263,10 @@ function Avatar({ id, name }: { id: string; name: string }) {
     else grp.position.lerp(tmp, t);
     const dy = s.ry - grp.rotation.y;
     grp.rotation.y += Math.atan2(Math.sin(dy), Math.cos(dy)) * t;
+    if (head.current) {
+      const pitch = Math.max(-1.55, Math.min(1.55, Number.isFinite(s.rp) ? s.rp ?? 0 : 0));
+      head.current.rotation.x += (pitch - head.current.rotation.x) * t;
+    }
     const speed = Math.hypot(grp.position.x - before.x, grp.position.z - before.z) / Math.max(dt, 1e-4);
     phase.current += dt * Math.min(speed, 8) * 2.2;
     const sw = Math.sin(phase.current) * Math.min(speed / 5, 1) * 0.8;
@@ -280,15 +311,14 @@ function Avatar({ id, name }: { id: string; name: string }) {
           <HeldSword remoteId={id} />
         </mesh>
       </group>
-      <mesh position={[0, 1.76, 0]} castShadow>
-        <boxGeometry args={[0.5, 0.5, 0.5]} />
-        <meshStandardMaterial color="#e7b98f" roughness={0.9} />
-        <ArmorShell id={id} part={0} size={[0.56, 0.54, 0.56]} />
-      </mesh>
-      <mesh position={[0, 1.8, -0.255]}>
-        <boxGeometry args={[0.32, 0.08, 0.01]} />
-        <meshStandardMaterial color="#222" />
-      </mesh>
+      <group ref={head} position={[0, 1.76, 0]}>
+        <mesh castShadow>
+          <boxGeometry args={[0.5, 0.5, 0.5]} />
+          <meshStandardMaterial color="#e7b98f" roughness={0.9} />
+          <ArmorShell id={id} part={0} size={[0.56, 0.54, 0.56]} />
+          <Eyes id={id} />
+        </mesh>
+      </group>
       <Html position={[0, 2.35, 0]} center distanceFactor={10} zIndexRange={[5, 0]}>
         <div className="nametag pointer-events-none flex min-w-24 flex-col items-center gap-1">
           <span>{name}</span>
@@ -488,7 +518,7 @@ export function toggleUi(target: "inv" | number | null) {
 function PlayerController() {
   const { camera, gl } = useThree();
   const acc = useRef(0);
-  const last = useRef({ x: 0, y: 0, z: 0, ry: 0, a: true, c: false, at: -10 });
+  const last = useRef({ x: 0, y: 0, z: 0, ry: 0, rp: 0, a: true, c: false, at: -10 });
   const cooldown = useRef(0);
   const rosterAcc = useRef(0);
   const mouse = useRef({ left: false, right: false, rightAt: 0 });
@@ -508,8 +538,9 @@ function PlayerController() {
     };
     const onMove = (e: MouseEvent) => {
       if (document.pointerLockElement !== el || hud.get().chatOpen) return;
-      G.self.yaw -= e.movementX * 0.0022;
-      G.self.pitch = Math.max(-1.55, Math.min(1.55, G.self.pitch - e.movementY * 0.0022));
+      const speed = 0.0022 * settings.sensitivity;
+      G.self.yaw -= e.movementX * speed;
+      G.self.pitch = Math.max(-1.55, Math.min(1.55, G.self.pitch - e.movementY * speed));
     };
     const onDown = (e: MouseEvent) => {
       if (document.pointerLockElement !== el || hud.get().chatOpen) return;
@@ -770,6 +801,7 @@ function PlayerController() {
       const y = Math.round(me.pos.y * 100) / 100;
       const z = Math.round(me.pos.z * 100) / 100;
       const ry = Math.round(me.yaw * 100) / 100;
+      const rp = Math.round(me.pitch * 100) / 100;
       const a = !me.spectator;
       const c = me.crouch;
       const l = last.current;
@@ -777,12 +809,12 @@ function PlayerController() {
       const eating = me.eating?.id ?? null;
       const heldId = held?.id ?? null;
       const appearance = `${armor.join(",")}:${eating ?? ""}:${me.health}:${heldId ?? ""}`;
-      const moved = Math.abs(x - l.x) + Math.abs(y - l.y) + Math.abs(z - l.z) + Math.abs(ry - l.ry) > 0.01 || a !== l.a || c !== l.c;
+      const moved = Math.abs(x - l.x) + Math.abs(y - l.y) + Math.abs(z - l.z) + Math.abs(ry - l.ry) + Math.abs(rp - l.rp) > 0.01 || a !== l.a || c !== l.c;
       const stale = clock.elapsedTime - l.at > 1;
       if (moved || stale || appearance !== lastAppearance.current) {
         lastAppearance.current = appearance;
-        last.current = { x, y, z, ry, a, c, at: clock.elapsedTime };
-        send("state", { id: playerId, name: G.name, x, y, z, ry, alive: a, c, hp: me.health, armor, eating, held: heldId });
+        last.current = { x, y, z, ry, rp, a, c, at: clock.elapsedTime };
+        send("state", { id: playerId, name: G.name, x, y, z, ry, rp, alive: a, c, hp: me.health, armor, eating, held: heldId });
       }
     }
 

@@ -18,6 +18,7 @@ export type NetState = {
   y: number;
   z: number;
   ry: number;
+  rp?: number;
   alive: boolean;
   c?: boolean;
   hp?: number;
